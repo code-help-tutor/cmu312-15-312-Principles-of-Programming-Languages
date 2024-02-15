@@ -1,0 +1,10 @@
+def pair = \M1. \M2. \k. k M1 M2;
+def fst  = \M. M (\x1. \x2. x1);
+def snd  = \M. M (\x1. \x2. x2);
+
+# test cases
+print! fst (pair x1 x2);
+print! snd (pair x1 x2);
+
+def swap = \M. pair (snd M) (fst M);
+print! swap (pair x1 x2);

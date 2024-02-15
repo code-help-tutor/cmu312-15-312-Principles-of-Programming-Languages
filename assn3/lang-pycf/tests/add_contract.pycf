@@ -1,0 +1,32 @@
+# Always errors at run-time.
+def error(_):
+    return len(1)
+
+
+# Runs `f` after checking `p` holds.
+def add_contract(args):
+    p = args[0]
+    f = args[1]
+
+    return lambda x: f(x) if p(x) else error(0)
+
+
+# Checks if `n == 0`.
+def eq_zero(n):
+    return n <= 0 if 0 <= n else False
+
+
+# Adds, with "optimization" to just return `y` if `x == 0`.
+# (Naively, could produce a non-`int`, e.g. `myadd([0, True])`!)
+def myadd(args):
+    x = args[0]
+    y = args[1]
+    return y if eq_zero(x) else x + y
+
+
+if __name__ == "__main__":
+    print(
+        # Run `myadd` with contract added to confirm second argument is an `int`.
+        # Since applying to `[0, lambda x: x]`, will error.
+        add_contract([lambda args: isinstance(args[1], int), myadd])([0, lambda x: x])
+    )

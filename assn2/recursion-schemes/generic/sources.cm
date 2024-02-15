@@ -1,0 +1,12 @@
+Library
+  source(-)
+is
+  $/basis.cm
+
+  positive-type-operator.sig
+
+  inductive.sig
+  inductive.fun
+
+  coinductive.sig
+  coinductive.fun

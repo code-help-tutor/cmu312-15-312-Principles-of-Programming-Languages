@@ -1,0 +1,9 @@
+Library
+  signature TEMP
+  structure Temp
+  structure Variable
+is
+  ../cmlib/cmlib.cm
+
+  temp.sig
+  temp.sml

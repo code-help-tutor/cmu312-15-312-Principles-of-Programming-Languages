@@ -1,0 +1,63 @@
+sml
+name ParseMainFun
+
+terminal IDENT of string
+
+terminal LPAREN precl 9
+terminal RPAREN precl 9
+
+terminal DOT
+terminal LAMBDA
+
+terminal NORM
+
+terminal DEF
+terminal DEF_FORCE
+terminal UNDEF
+terminal PRINT
+terminal PRINT_FORCE
+terminal ASSERT
+terminal ASSERT_FORCE
+terminal EQ
+terminal NEQ
+
+nonterminal Stmts : stmts =
+  => stmtsnil
+  1:Stmt 2:Stmts => stmtscons
+
+nonterminal Def : bool =
+  DEF => bfalse
+  DEF_FORCE => btrue
+
+nonterminal Print : bool =
+  PRINT => bfalse
+  PRINT_FORCE => btrue
+
+nonterminal Assert : bool =
+  ASSERT => bfalse
+  ASSERT_FORCE => btrue
+
+nonterminal Compare : bool =
+  EQ => btrue
+  NEQ => bfalse
+
+nonterminal Stmt : stmt =
+  1:Def 2:IDENT EQ 3:Term => stmtdef
+  UNDEF 1:IDENT => stmtundef
+  1:Print 2:Term => stmtprint
+  1:Assert 2:Term 3:Compare 4:Term => stmtassert
+
+nonterminal Term : term =
+  1:AppTerm => termid
+  LAMBDA 1:IDENT DOT 2:Term => termabs
+  NORM 1:Term => termnorm
+
+nonterminal AppTerm : term =
+  1:Atom => termid
+  1:AppTerm 2:Atom => termapp
+
+nonterminal Atom : term =
+  LPAREN 1:Term RPAREN => termid
+  1:IDENT => termvar
+
+start Stmts

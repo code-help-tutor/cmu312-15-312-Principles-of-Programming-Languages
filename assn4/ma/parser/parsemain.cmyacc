@@ -1,0 +1,192 @@
+sml
+name ParseMainFun
+
+terminal IDENT of string
+terminal FILENAME of string
+terminal STRING of string
+terminal DOT
+terminal LPAREN precl 9
+terminal RPAREN precl 9
+terminal EQUAL precl 2
+terminal VAL
+terminal IFZ
+terminal COMMA
+terminal LOAD
+terminal PRINT
+terminal TYPE
+terminal STAR precl 5
+terminal SLASH precl 5
+terminal PERCENT precl 5
+terminal PLUS precl 4
+terminal DASH precl 4
+terminal ARROW precr 6
+terminal REC
+terminal UNIT
+terminal CASE
+terminal COLON
+terminal TILDE
+terminal FALSE
+terminal FN
+terminal FUN
+terminal FOLD
+terminal UNFOLD
+terminal GT precl 3
+terminal LT precl 3
+terminal GTE precl 3
+terminal LTE precl 3
+terminal NEQ precl 2
+terminal ANDAND precl 1
+terminal OROR precl 0
+terminal ASSIGN precl 2
+terminal BANG
+terminal IF
+terminal INL
+terminal INR
+terminal LBRACE
+terminal RBRACE
+terminal LBRACK
+terminal RBRACK
+terminal LET
+terminal SPLIT
+terminal IS
+terminal IN
+terminal TRUE
+terminal NUM of int
+terminal ZERO
+terminal SUCC
+terminal THEN
+terminal ELSE
+terminal DARROW
+terminal END
+terminal OF
+terminal PIPE precr 9
+terminal ABORT
+terminal VOID
+terminal CMD
+terminal RET
+terminal NAT
+terminal BOOL
+terminal DECL
+terminal GET
+terminal SET
+terminal DO
+terminal WHILE
+terminal CMDLET
+terminal BNDCMDEXP
+terminal IGNORE
+terminal LOCAL
+
+nonterminal AbsTerm : binder =
+  1:IDENT DARROW 2:Term => absterm
+
+nonterminal FunArgs : funargs =
+  LPAREN 1:IDENT COLON 2:Typ RPAREN 3:FunArgs => funargs2
+  LPAREN 1:IDENT COLON 2:Typ RPAREN => funargs1
+
+nonterminal CmdList : cmd =
+  1:Cmd COMMA 2:CmdList => cmdseq
+  1:Cmd => cmdid
+
+nonterminal IdList : stringlist =
+  1:IDENT COMMA 2:IdList => cons
+  1:IDENT => sing
+
+nonterminal FunDecl : fundecl =
+  FUN 1:IDENT 2:FunArgs COLON 3:Typ EQUAL 4:Term => fundeclasc
+
+nonterminal TermAtom : term =
+  LPAREN 1:Term RPAREN => termid
+  1:NUM => termnum
+  1:STRING => termstring
+  TRUE => termtrue
+  FALSE => termfalse
+  ZERO => termzero
+  1:IDENT => termvar
+  LPAREN RPAREN => termtriv
+  LPAREN 1:Term COMMA 2:Term RPAREN => termpair
+  CASE 1:Term OF LBRACE 2:AbsTerm PIPE 3:AbsTerm RBRACE => termcase
+  LET 1:DeclList IN 2:Term END => termlet
+
+nonterminal AppTerm : term =
+  1:TermAtom => termid
+  1:AppTerm 2:TermAtom => termapp
+
+nonterminal TreeTerm : term =
+  1:AppTerm => termid
+  1:TreeTerm PLUS 2:TreeTerm => termplus
+  1:TreeTerm DASH 2:TreeTerm => termminus
+  1:TreeTerm STAR 2:TreeTerm => termtimes
+  1:TreeTerm SLASH 2:TreeTerm => termdiv
+  1:TreeTerm PERCENT 2:TreeTerm => termmod
+  1:TreeTerm EQUAL 2:TreeTerm => termeq
+  1:TreeTerm NEQ 2:TreeTerm => termneq
+  1:TreeTerm LT 2:TreeTerm => termlt
+  1:TreeTerm LTE 2:TreeTerm => termlte
+  1:TreeTerm GT 2:TreeTerm => termgt
+  1:TreeTerm GTE 2:TreeTerm => termgte
+  1:TreeTerm ANDAND 2:TreeTerm => termandand
+  1:TreeTerm OROR 2:TreeTerm => termoror
+
+nonterminal Term : term =
+  1:TreeTerm => termid
+  FN 1:IDENT COLON 2:Typ DARROW 3:Term => termfn
+  FN LPAREN 1:IDENT COLON 2:Typ RPAREN DARROW 3:Term => termfn
+  SPLIT 1:Term IS 2:IDENT COMMA 3:IDENT IN 4:Term => exp_split
+  INL LBRACK 1:Typ RBRACK 2:Term => terminl
+  INR LBRACK 1:Typ RBRACK 2:Term => terminr
+  FOLD LBRACK 1:Typ RBRACK 2:Term => termfold
+  UNFOLD 1:Term => termunfold
+  IF 1:Term THEN 2:Term ELSE 3:Term => termif
+  SUCC 1:Term => termsucc
+  IFZ 1:Term THEN 2:Term ELSE 3:AbsTerm => termifz
+  ABORT LBRACK 1:Typ RBRACK 2:Term => termabort
+  CMD 1:Cmd => termcmd
+  BANG 1:Term => termnot
+
+nonterminal Cmd : cmd =
+  RET LPAREN 1:Term RPAREN => cmdret
+  LPAREN 1:Cmd RPAREN => cmdid
+  LOCAL 1:IDENT ASSIGN 2:Term IN 3:Cmd => cmddecl
+  BNDCMDEXP 1:IDENT EQUAL 2:Term IN 3:Cmd  => cmdbind
+  GET 1:IDENT => cmdget
+  SET 1:IDENT ASSIGN 2:Term => cmdset
+  PRINT 1:Term => cmdprint
+  DO 1:Term => cmddo
+  LBRACE 1:CmdList RBRACE => cmdid
+  IF 1:Cmd THEN 2:Cmd ELSE 3:Cmd => cmdif
+  WHILE LPAREN 1:Cmd RPAREN 2:Cmd  => cmdwhile
+  CMDLET 1:IDENT EQUAL 2:Cmd IN 3:Cmd => cmdcmdlet
+  IGNORE 1:Cmd => cmdignore
+  LBRACK 1:IdList RBRACK LPAREN 2:Term RPAREN => cmdgetvars
+  LBRACK 1:IdList RBRACK LBRACE 2:Cmd RBRACE => cmdgetvars'
+
+nonterminal Typ : typ =
+  1:IDENT => typevar
+  1:Typ PLUS 2:Typ => typesum
+  1:Typ STAR 2:Typ => typeprod
+  1:Typ ARROW 2:Typ => typefun
+  REC LPAREN 1:IDENT DOT 2:Typ RPAREN => typerec
+  LPAREN 1:Typ RPAREN => typeid
+  UNIT => typeunit
+  VOID => typevoid
+  NAT => typenat
+  BOOL => typebool
+  CMD LBRACK 1:Typ RBRACK => typecmd
+
+nonterminal Decl : decl =
+  1:FunDecl => fundcl
+  VAL 1:IDENT EQUAL 2:Term => termdcl
+
+nonterminal DeclList : decls =
+  1:Decl => decl1
+  1:Decl 2:DeclList => decl2
+
+nonterminal Directive : directive =
+  TYPE 1:IDENT EQUAL 2:Typ => typedef
+  1:FunDecl => fundef
+  VAL 1:IDENT EQUAL 2:Term => termdef
+  1:Term => baretermdef
+  1:Cmd => cmddef
+  LOAD 1:FILENAME => load
+
+start Directive

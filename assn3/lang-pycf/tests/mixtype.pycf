@@ -1,0 +1,5 @@
+hey = 15
+p = 312 if 0 <= hey else lambda x: x
+
+if __name__ == "__main__":
+    print(1 if p <= 819 else [])

@@ -1,0 +1,7 @@
+test 0
+let
+  val hey = 112233
+  val p = cond hey (s z) (fn (x) x)
+in
+  ifz p {z => 1 | s t => 0}
+end

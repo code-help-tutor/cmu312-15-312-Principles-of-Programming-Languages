@@ -1,0 +1,3 @@
+letcc[A + cont[A]] k in
+let a = letcc[A] k' in throw[A](k, R[A, cont[A]].k') in
+L[A, cont[A]].a

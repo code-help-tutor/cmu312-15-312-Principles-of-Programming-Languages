@@ -1,0 +1,4 @@
+# Basic test of lambda usage.
+
+if __name__ == "__main__":
+    print(lambda x: x)

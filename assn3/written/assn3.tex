@@ -1,0 +1,1344 @@
+\documentclass[11pt]{article}
+\usepackage[normalem]{ulem}
+
+\input{setup}
+\input{setup-assn3}
+\input{defns}
+\input{issolution}
+
+\title{Assignment 3: \\
+        \LangPCF{}, \LangFPC{}, and \LangPyCF{}}
+
+\begin{document}
+
+\maketitle
+
+In this assignment you will explore concepts of self-reference in programming languages.  In \LangPCF{} we consider self-reference at the term level.  Most often students encounter this form of self-reference when defining recursive functions, those that ``call themselves'' when applied to an argument.  But self-reference is not inherently tied to functions, and may be usefully isolated using the type $\selftyabt{\tau}$ of self-referential expressions of type $\tau$.  In \LangFPC{} we consider self-reference at the type level, via recursive types $\rectyabt{t}{\tau}$, where $t$ may occur without restriction in $\tau$.  Recursive types may be used to define self-types, which shows that \LangFPC{} subsumes \LangPCF{}.  Most students are familiar with recursive types in ML for defining data structures, such as natural numbers and lists, which are examples of inductive types.  These definitions rely on the eager, by-value dynamcis of \LangFPC{}.  When a lazy, by-name dynamics is used, the ``same'' recursive types, syntactically, define coinductive types, namely co-natural numbers and streams.  In the first part of this assignment you will explore these relationships in more detail.
+
+So-called ``dynamically typed'' languages are promoted as being more powerful and more flexible than their ``statically typed'' counterparts: there is no need to please a type checker to get your code to compile.  A commonly-cited example is the ability to form heterogenous lists, those whose elements are of disparate types, say strings and numbers and booleans all intermixed, with the implication that this cannot be done in a static language.  More generally, advocates of dynamic language stress the interactive nature of code development in which anything that parses does something, and one never has to deal with a type checker.
+
+To explore these claims you will implement a dynamic version of \LangPCF, called \LangPyCF{}, in homage to a well-known dynamic language.  The language is small, though easily extensible, but is faithful to the core tenets of dynamic typing.  As you have learned in class, the irony is that dynamic typing is but a mode of use of static typing, one in which you confine your attention to a single recursive type.  To substantiate this claim, you will formulate and implement a translation from \LangPyCF{} into \LangFPC{} in which a single recursive type classifies all values of the dynamic language.  So-called dynamic types emerge as a combination of folding in a recursive type and tagging the components of a summand, leading to considerable run-time overhead.  You will consider in detail the translation of a particular \LangPyCF{} program to get a better feel for their needless inefficiency.
+
+As Dana Scott said, untyped languages are really uni-typed.  And here we ask, just why is that a good idea?
+
+\noindent
+
+\section{Self-Reference in Expressions and Types}
+
+Recall the type $\selftyabt{\tau}$ of self-referential values of type $\tau$, with introductory form $\selfexabt{\tau}{x}{e}$ and eliminator form $\unselfexabt{e}$ subject to the dynamics
+\[
+  \unselfexabt{\selfexabt{\tau}{x}{e}} \StepsTo \Subst{\selfexabt{\tau}{x}{e}}{x}{e}
+\]
+with $\IsVal{\selfexabt{\tau}{x}{e}}$.  Recall that the type $\selftyabt{\tau}$ is definable in \LangFPC{} as the recursive type $\rectyabt{t}{t\to\tau}$, where $t\notin\tau$, with $\selfexabt{\tau}{x}{e}$ being $\foldexcst{t}{\dots}{\lamcst{\selftyabt{\tau}}{x}{e}}$, and $\unselfexabt{e}$ being $\appcst{\unfoldexcst{e}}{e}$.
+
+Consider the extension of \LangFPC{} defined in \Cref{appendix:FPC}.
+
+\task{10}
+\newcommand{\floor}[1]{\ensuremath{\lfloor #1\rfloor}}
+
+Assume given a function $\kw{halve}:\arrtycst{\inttycst}{\inttycst}$ that computes the floor of half of its argument.  Thus, for example, $\appcst{\kw{halve}}{\intexcst{3}}$ evaluates to $\intexcst{1}$.  You are to define:
+\begin{enumerate}
+  \item $\kw{lg'}:\selftycst{\cdparens{\arrtycst{\inttycst}{\inttycst}}}$, and
+  \item $\kw{lg}:\arrtycst{\inttycst}{\inttycst}$.
+\end{enumerate}
+The second, which computes the floor of the binary logarithm of its argument, is to be defined in terms of the first, an auxiliary function that, on input $n$ computes $\floor{\lg n}$.%
+\footnote{$\lg n$ is the base-2 logarithm of $n$. For simplicity, your implementation may do anything when $n \le 0$.}
+Notice that \kw{lg'} is self-referential, and \kw{lg} is not!
+
+Your solution must be given in terms of the self-types summarized above, within an eager, by-value interpretation of \LangFPC{}.
+
+\solution{self-ref}
+
+\bigskip
+
+For the next two tasks, define
+\[
+  T \isdef{} \rectycst{t}{\tau},
+\]
+where
+\[
+  \tau \isdef{} \sumtycst{\Fld{\Elbl}{\unittycst}}{\Fld{\Nlbl}{\triptycst{t}{\booltycst}{t}}}.
+\]
+The meaning of this type depends on whether $\LangFPC$ is understood eagerly/by-value or lazily/by-name.
+
+\task{20}
+
+For this task assume an \textbf{eager/by-value} dynamics for \LangFPC{}.
+
+Define the value $\EmpVal\isdef\foldexcst{t}{\dots}{\fld{\Elbl}{\unitexcst}}$ of type $T$, and
+$\NodeVal{t_1}{b}{t_2}\isdef\foldexcst{t}{\dots}{\fld{\Nlbl}{\tripexcst{t_1}{b}{t_2}}}$, a value of type $T$ when $t_1$ and $t_2$ are values of type $T$ and $b$ is a value of type $\booltycst$.
+
+In the eager setting this type is inductive in that it is possible to define a recursor for it with the following statics:
+\[
+  \inferrule
+    {\Gamma\vdash\IsOf{e_1}{T} \qquad \Gamma,\IsOfVar{x}{\Subst{\rho}{t}{\tau}}\vdash\IsOf{e_2}{\rho}}
+    {\Gamma\vdash\IsOf{\Trecabt{\rho}{e_1}{x}{e_2}}{\rho}}
+\]
+and the following dynamics:
+\[
+  \inferrule
+    {\strut}
+    {\Trecabt{\rho}{\EmpVal}{x}{e_2}\StepsTo \letbecst{\fld{\Elbl}{\unitexcst}}{x}{e_2}}
+\]
+and
+\[
+  \inferrule
+    {r_1=\Trecabt{\rho}{t_1}{x}{e_2} \quad r_2=\Trecabt{\rho}{t_2}{x}{e_2}}
+    {\Trecabt{\rho}{\NodeVal{t_1}{b}{t_2}}{x}{e_2}\StepsTo \letbecst{\fld{\Nlbl}{\tripexcst{r_1}{b}{r_2}}}{x}{e_2}}
+\]
+Notice the similarity with the recursor for $\nattycst$, the difference being that a node has two predecessors and a label.
+
+Your tasks are as follows:
+\begin{enumerate}
+  \item Describe, informally, the values of type $T$ under this interpretation in terms of the above values.
+  \item Define, using the recursor, an in-order traversal function
+   \[
+    \kw{inord}:T \to \listtycst{\booltycst}.
+   \]
+  Feel free to use list operations such as append and cons.
+
+  \item Define the recursor in \LangFPC{} by giving a recursive function $R:\selftycst{(T\to\rho)}$, defined  in terms of $\AbsABT{x}{e_2}$, so that
+  \[
+    \Trecabt{\rho}{e_1}{x}{e_2} \isdef \appcst{\unselfexcst{R}}{e_1}.
+  \]
+  Your solution will follow very closely the dynamics, using \kw{let} to bind the results of the recursive calls as in the premises of the dynamics rules.
+\end{enumerate}
+
+\solution{rec-cbv}
+
+\bigskip
+
+\task{20}
+For this task assume a \textbf{lazy/by-name} dynamics for \LangFPC.
+
+If $e$ is of type $T$, then the expression $\unfoldexcst{e}$ is of type $\Subst{T}{t}{\tau}$, the sum type given earlier.
+
+In the lazy setting this type is coinductive in that it is possible to define a generator for it with the following statics:
+\[
+  \infer
+  {\Gamma\vdash\IsOf{\Tgenabt{\sigma}{e_1}{x}{e_2}}{T}}
+  {\Gamma\vdash\IsOf{e_1}{\sigma}\quad \Gamma,\IsOfVar{x}{\sigma}\vdash\IsOf{e_2}{\Subst{\sigma}{t}{\tau}}}
+\]
+and dynamics:
+\[
+  \infer
+  {\unfoldexcst{\Tgenabt{\sigma}{e_1}{x}{e_2}}\StepsTo
+    \Tcaseexcst{\Subst{e_1}{x}{e_2}}{\fld{\Elbl}{\unitexcst}}{s_1}{b}{s_2}{\fld{\Nlbl}{\tripexcst{t_1}{b}{t_2}}}}
+  {t_1=\Tgenabt{\sigma}{s_1}{x}{e_2}\quad t_2=\Tgenabt{\sigma}{s_2}{x}{e_2}}
+\]
+Notice the similarity with the generator for the type $\conattycst$, the difference being that a node has two predecessors, and a label.
+
+\begin{enumerate}
+  \item Describe, informally, the values of this type in terms of its unfolding.
+  \item Define the function
+  \[
+    \kw{inord}:\selftycst{\cdparens{\arrtycst{T}{\booltycst\,\kw{stream}}}}
+  \]
+  that computes an inorder traversal of the given argument of type $T$.
+  Feel free to use operations on streams such as append and cons of an element onto a stream.  \emph{Hint:} Your solution will be very similar to the one given for the inductive case.  It will \emph{not} require the use of the generator, because it does \emph{not} compute a value of type $T$!
+  \item Define the generator in \LangFPC{} by giving a recursive function $G:\selftycst{(\sigma\to T)}$, defined in terms of $\AbsABT{x}{e_2}$, so that
+    \[
+      \Tgenabt{\sigma}{e_1}{x}{e_2} = \appcst{\unselfexcst{G}}{e_1}.
+    \]
+  Your solution will rely on the lazy/by-name interpretation of \LangFPC, and will follow very closely the dynamics given above.
+\end{enumerate}
+
+\solution{gen-cbn}
+
+
+
+\section{The Zen of \LangPyCF{}}
+
+In a dynamically typed language, such as Python, Ruby, JavaScript, or Scheme,
+an implementation must internally \textbf{tag} values with their class (often called ``type'') when they are created,
+and all operations must check the class of their operands (perform a ``run-time type check'').
+
+In this section, we introduce \LangPyCF{}, a dynamically-``typed'' extension of \LangPCF{}.
+For simplicity, we statically check that closed express do not have unbound variables, but there are no other static guarantees.
+The dynamics is more involved because it must impose, check, and remove classes during execution.
+Since these checks are baked into the dynamics, they are not visible in the syntax. Thus, it isn't possible to program without them!
+
+\subsection{Syntax}\label{sec:PyCF-grammar}
+
+We summarize the syntax of this language here, writing \sout{expressions} objects as
+$d$ instead of $e$ to distinguish from other languages.
+Rather than having (static) types, \LangPyCF{} has (dynamic) classes which can be checked at run-time.
+
+\[
+\begin{array}{l c c l@{\qquad} l l}
+\text{\bf Sort} &   &     & \text{\bf Abstract form}   & \text{\bf Concrete form} & \\
+\Sort{Class}    & c & ::= & \dbooltag                  & \dbooltag \\
+                &   &     & \dinttag                   & \dinttag \\
+                &   &     & \dlisttag                  & \dlisttag \\
+                &   &     & \dfuntag                   & \dfuntag \\
+                &   &     &                            & \\
+\Sort{Object}   & d & ::= & x                          & x \\
+                &   &     & \dboolabt{b}               & \dboolcst{b}             & (\kw{True}, \kw{False}) \\
+                &   &     & \difabt{d}{d_1}{d_0}       & \difcst{d}{d_1}{d_0} \\
+                &   &     & \dintabt{i}                & \dintcst{i}              & (\dots, \kw{-2}, \kw{-1}, \kw{0}, \kw{1}, \kw{2}, \dots) \\
+                &   &     & \dplusabt{d_1}{d_2}        & \dpluscst{d_1}{d_2}      & (\text{int addition and list append}) \\
+                &   &     & \dleqabt{d_1}{d_2}         & \dleqcst{d_1}{d_2} \\
+                &   &     & \dlistabt{\ZeqABT{n-1}{d}} & \dlistcst{d_0, \dots, d_{n-1}} \\
+                &   &     & \dindexabt{d}{d_\text{index}} & \dindexcst{d}{d_\text{index}} \\
+                &   &     & \dlenabt{d}                & \dlencst{d} \\
+                &   &     & \dfunabt{f}{x}{d}          &                          & \text{(see below)} \\
+                &   &     & \dappabt{d}{d_1}           & \dappcst{d}{d_1} \\
+                &   &     & \dletabt{d_1}{x}{d_2}      &                          & \text{(see below)} \\
+                &   &     & \disinstanceabt{d}{c}      & \disinstancecst{d}{c} \\
+\end{array}
+\]
+
+\LangPyCF{} is an extension of \LangDPCF{}, adding booleans, integers with primitive addition and less-than-or-equal-to operations, lists, let bindings, and run-time class checking.
+
+In the concrete syntax, we parse $\dfunabt{f}{x}{d}$ and $\dletabt{d_1}{x}{d_2}$ as \emph{declarations} to match familiar programming languages.
+Programs are lists of declarations, terminated by \lstinline[language=Python,mathescape=true]|if __name__ == "__main__": print($d$)|, which gets desugared to a sequence of \kw{let}s.
+For example, here is a program which sums the list \code{[1, 5, 3, 1, 2]}:
+
+\begin{lstlisting}[language=Python]
+  # Sum a list.
+  def sum(l):
+      n = len(l)
+
+      def sum_helper(i):
+          return 0 if n <= i else l[i] + sum_helper(i + 1)
+
+      return sum_helper(0)
+
+
+  test = [1, 5, 3, 1, 2]
+
+  if __name__ == "__main__":
+      print(sum(test))
+\end{lstlisting}
+
+In abstract syntax, this program is is $\textsc{Main}$, where (up to $\alpha$-equivalence):
+\begin{align*}
+  \textsc{SumHelper} &\isdef \dfunabt{h}{i}{\difabt{\dleqabt{n}{i}}{\dintabt{0}}{\dplusabt{\dindexabt{l}{i}}{\dappabt{h}{\dplusabt{i}{\dintabt{1}}}}}} \\
+  \textsc{Sum} &\isdef \dfunabt{sum}{l}{\dletabt{\dlenabt{l}}{n}{\dletabt{\textsc{SumHelper}}{helper}{\dappabt{helper}{\dintabt{0}}}}} \\
+  \textsc{Test} &\isdef \dlistabt{\dintabt{1}, \dintabt{5}, \dintabt{3},\dintabt{1}, \dintabt{2}} \\
+  \textsc{Main} &\isdef \dletabt{\textsc{Sum}}{sum}{\dletabt{\textsc{Test}}{test}{\dappabt{sum}{test}}}
+\end{align*}
+
+The abstract syntax of \LangPyCF{} intentionally resembles that of \LangPCF{}, but without any type information.%
+\footnote{The concrete syntax may resemble\footnotemark that of another familiar dynamically-``typed'' language, as well... :)}%
+\footnotetext{Don't take this \emph{too} seriously, though - the semantics are sometimes different. For example, there is no mutability here (variables are true mathematical variables, not assignables), and \lstinline[language=Python]|isinstance(True, int)| is false.}
+But appearances are deceiving!
+The dynamics of \LangPyCF{} is radically different from that of \LangPCF{}, for reasons that are much deeper than can be explained at the purely syntactic level.
+
+\subsection{Dynamics}
+
+Because the statics of \LangPyCF{} is so permissive, the dynamics has to pick up the slack and detect errors at run-time.
+Consequently, we need the following set of judgments (defined in \Cref{appendix:PyCF}):
+\[
+  \begin{array}{l l}
+    \DIsnt{d}{c} & \text{$d$ is not of class $c$} \\
+    \IsVal{d} & \text{$d$ is a closed value} \\
+    \Steps{d}{d'} & \text{$d$ steps to $d'$} \\
+    \DIsErr{d} & \text{$d$ incurs a run-time error}
+  \end{array}
+\]
+
+\task{20}
+Implement the \code{Index}, \code{Fun}, \code{Ap}, and \code{IsInstance} cases of the dynamics of \LangPyCF{} in \path{lang-pycf/dynamics-pycf.sml}.
+
+\paragraph{Testing}
+As usual, you can test your code using \code{InterpreterPyCF}. For example:
+\begin{codeblock}
+  - InterpreterPyCF.repl ();
+  -> 1 + 2 + 3;
+  (Plus ((Plus ((Int 1), (Int 2))), (Int 3)))
+  Type: ok
+  Evaluating... val (Int 6)
+
+  -> [1, 2] + [3];
+  (Plus ((List [(Int 1), (Int 2)]), (List [(Int 3)])))
+  Type: ok
+  Evaluating... val (List [(Int 1), (Int 2), (Int 3)])
+
+  ->
+  Interrupt
+  - InterpreterPyCF.evalFile "tests/triangle.pycf";
+  (Let ((Fun (triangle7 . (n8 . (If ((LEq (n8, (Int 0))), (Int 0), (Plus (n8, (Ap (triangle7, (Plus (n8, (Int ~1)))))))))))), (triangle5 . (Ap (triangle5, (Int 10))))))
+  Type: ok
+  Evaluating... val (Int 55)
+
+  val it = () : unit
+\end{codeblock}
+
+\subsection{Dynamic Programming (the other kind)}
+
+Now, let's experiment with programming in \LangPyCF{}.
+
+\task{15} Implement the following operations in \LangPyCF{} using concrete syntax in \path{lang-pycf/tasks/}.
+\begin{enumerate}
+  \item
+    In \path{comprehension.pycf}, implement \lstinline[language=Python]|comprehension| to satisfy the given specification.
+
+    \lstinline[language=Python]|comprehension([f, p, l])| should be analogous to \lstinline[language=Python]|[f(x) for x in l if p(x)]| in other programming languages.
+
+    \begin{hint}
+      You may find it useful to draw inspiration from \path{map.pycf} and \path{filter.pycf}.
+    \end{hint}
+
+  \item
+    In \path{sum_default.pycf}, implement \lstinline[language=Python]|sum| to satisfy the given specification.
+
+    In particular, \lstinline[language=Python]|sum| should take in ``multiple arguments'' (really, a list of arguments).
+    You can assume it will be provided only one or two arguments.
+    The zeroth argument, always present, will be a list to sum.
+    The first argument, which may or may not be present, will be a value to start the sum from, defaulting to \lstinline[language=Python]|0|.
+
+    This function is similar to \lstinline[language=Python]|sum| in Python, which takes in an optional \lstinline[language=Python]|start| argument.
+
+  \item
+    In \path{matrix_sum.pycf}, implement \lstinline[language=Python]|matrix_sum|, which sums the elements of a matrix represented by nested lists.
+
+    For example:
+    \begin{itemize}
+      \item \lstinline[language=Python]|matrix_sum(5)| should be \lstinline[language=Python]|5|, since its input is a zero-dimensional matrix (scalar).
+      \item \lstinline[language=Python]|matrix_sum([1, 4, 2])| should be \lstinline[language=Python]|7|, summing the vector as a list.
+      \item \lstinline[language=Python]|matrix_sum([[5, 1], [6, 8]])| should be \lstinline[language=Python]|20|, summing the two-dimensional matrix.
+    \end{itemize}
+    You may assume the input is built only of well-formed matrices; you need not worry about dimensions.
+    Additionally, you are welcome to copy in functions from the given test files as you see fit.
+\end{enumerate}
+
+To evaluate your file, you can use \code{InterpreterPyCF}.
+In each of the files, there are commented-out test cases you can uncomment and run.
+However, when submitting, make sure to comment them out again!
+
+\begin{lstlisting}
+  - InterpreterPyCF.evalFile "tasks/matrix_sum.pycf";
+  (Let ((Fun (matrix_sum8 . (m9 . (* your implementation... *)))), (matrix_sum6 . (Ap (matrix_sum6, (List [(List [(Int 5), (Int 1)]), (List [(Int 6), (Int 8)])]))))))
+  Type: ok
+  Evaluating... val (Int 20)
+
+  val it = () : unit
+  (* remember: comment out test, uncomment `print(matrix_sum)' *)
+\end{lstlisting}
+
+\section{Compiling \LangPyCF{} to \LangFPC{}}
+
+The run-time overhead of dynamic typing can be made explicit by translating \LangPyCF{} into an eager
+version of \LangFPC{} by regarding a \LangPyCF{} object as an \LangFPC{} expression with the type $\dyntyabt$, where $\dyntyabt$ is defined as:
+\begin{align*}
+  \dynviewtyabt{\tau} &\isdef
+    (\dbooltag \casebrcst \booltyabt)
+    + (\dinttag \casebrcst \inttyabt)
+    + (\dlisttag \casebrcst \listtyabt{\tau})
+    + (\dfuntag \casebrcst \arrtyabt{\tau}{\tau}) \\
+  \dyntyabt
+    &\isdef \rectyabt{d}{\dynviewtyabt{d}} \\
+    &= \rectyabt{d}{
+      (\dbooltag \casebrcst \booltyabt)
+      + (\dinttag \casebrcst \inttyabt)
+      + (\dlisttag \casebrcst \listtyabt{d})
+      + (\dfuntag \casebrcst \arrtyabt{d}{d})
+    }
+\end{align*}
+
+When unfolded, $\dyntyabt$ is a sum type whose summands correspond to the classes of \LangPyCF{}:
+\[
+  \dynviewtyabt{\dyntyabt}
+    =
+  (\dbooltag \casebrcst \booltyabt)
+  + (\dinttag \casebrcst \inttyabt)
+  + (\dlisttag \casebrcst \listtyabt{\dyntyabt})
+  + (\dfuntag \casebrcst \arrtyabt{\dyntyabt}{\dyntyabt})
+\]
+
+For brevity, we write $\tau_c$ for the type of the summand with label $c$:
+%
+\begin{align*}{}
+  \tau_\dbooltag &\isdef{} \booltyabt \\
+  \tau_\dinttag  &\isdef{} \inttyabt \\
+  \tau_\dlisttag &\isdef{} \listtyabt{\dyntyabt} \\
+  \tau_\dfuntag  &\isdef{} \arrtyabt{\dyntyabt}{\dyntyabt})
+\end{align*}
+where we define:
+\begin{align*}
+  \booltyabt &\isdef (\kw{true} \casebrcst \unittyabt) + (\kw{false} \casebrcst \unittyabt)
+\end{align*}
+
+The run-time checks of \LangPyCF{} amount to case analyses on the class of a value
+(since $\dyntyabt$ is a sum): if the expected case is encountered, the value is
+returned, otherwise it results in an error.
+
+\subsection{Introduction}
+
+Suppose that $\Gamma\entails\IsOK{d}$ is a well-formed \LangPyCF{} expression in the \LangPyCF{} context $\Gamma$.
+You are to define a translation $\Translate{d}$ by induction on the structure of $d$ that transforms $d$, a \LangPyCF{} object, into an \LangFPC{} expression that mimics $d$'s behavior.
+We require static and dynamic correctness of the translation.
+
+\begin{theorem}[Static Correctness]\label{thm:static-correctness}
+  If $\Gamma \entails \IsOK{d}$, then
+  $\overline{\Gamma} \entails \Translate{e} : \dyntyabt$, where
+  $\overline{\Gamma} = \IsOf{x_1}{\dyntyabt},\dots,\IsOf{x_n}{\dyntyabt}$ is the \LangFPC{} context that corresponds to the \LangPyCF{} context $\Gamma=\IsOK{x_1},\dots,\IsOK{x_n}$.
+\end{theorem}
+
+Notice that we assume all variables have type $\dyntyabt$.
+We must be careful to maintain this invariant during translation when going under a binder!
+
+The \emph{dynamic correctness} is more difficult to specify precisely; the tools required are beyond
+the scope of this course.  However, one may keep in mind the following guidelines for the translation.
+\begin{enumerate}
+
+\item A \LangPyCF{} expression is erroneous (incurs a run-time error) iff its translation into \LangFPC{} produces a run-time error.
+
+\item A \LangPyCF{} expression evaluates to a value of class $c$ iff its translation into \LangFPC{} evaluates to a value of type $\dyntyabt$ of the form $\sfoldexcst{\inexcst{\dyntyabt}{c}{v}}$ for a value $\IsOf{v}{\tau_c}$.
+
+\item A \LangPyCF{} expression $d$ should diverge iff its translation $e$ diverges in \LangFPC{}.
+
+\item The order of evaluation of sub-expressions should be exactly the same under translation as it is in \LangPyCF{}.
+
+\end{enumerate}
+
+\smallskip
+
+Now we define the helper expressions for dealing with dynamic class checking and recursive functions.
+
+\subsection{Tagging and Untagging}
+
+We wish to define two derived \LangFPC{} constructs corresponding to tagging and untagging values according to their class:
+\begin{mathpar}
+  \infer
+    {\Gamma\entails\IsOf{\dtagabt{c}{e}}{\dyntyabt}}
+    {\Gamma\entails\IsOf{e}{\tau_c}}
+
+  \infer
+    {\Gamma\entails\IsOf{\dcastabt{c}{e}}{\tau_c}}
+    {\Gamma\entails\IsOf{e}{\dyntyabt}}
+\end{mathpar}
+In these rules, the type $\tau_c$ for class $c$ is determined by the unrolling of the recursive type $\dyntycst$ as defined before.
+The purpose of $\kw{new}$ is to add a class tag to $e$ and, dually, $\kw{cast}$ removes this class tag and returns the contained data if the class was correct and produces an error otherwise.
+
+\task{10} Define the operation $\dtagabt{c}{e}$ with the above typing as a derived form in \LangFPC{}, using the expression forms given in \Cref{appendix:FPC}.
+These operations may be thought of as the introduction forms for the recursive type $\dyntyabt$ representing values of \LangPyCF{}.
+
+\solution{defnew.tex}
+
+\task{10}
+Define the operation $\dcastabt{c}{e}$ with the above typing in \LangFPC{}, using the expression forms given in \Cref{appendix:FPC}.
+These are the elimination forms for the recursive type $\dyntyabt$.
+
+\solution{defcast.tex}
+
+\task{10}
+Implement $\dtagabt{c}{e}$ and $\dcastabt{c}{e}$ in \path{translate/synext.sml}.
+You will find the functions in \path{translate/synext-helpers.sml} helpful.
+
+\begin{hint}
+  You should \emph{not} case on $e$, which could be an arbitrary expression of the appropriate type according to the rules above.
+  In fact, $e$ need not terminate, let alone be a value.
+  Instead, you may wish to case on $c$ (either explicitly or via auxiliary functions such as \code{classToSummand Dyn}).
+\end{hint}
+
+\subsection{Recursive Functions}
+
+To translate recursive functions from \LangPyCF{}, we will need to recover recursive functions in \LangFPC{}.
+In particular, we want a way to define recursive functions into \LangFPC{} which admits the following typing rule:
+\begin{mathpar}
+  \infer
+    {\Gamma\vdash \IsOf{\funabt{\tau_1}{\tau_2}{f}{x}{e}}{\arrtycst{\tau_1}{\tau_2}}}
+    {\Gamma,\IsOf{f}{\arrtycst{\tau_1}{\tau_2}},\IsOf{x}{\tau_1}\vdash\IsOf{e}{\tau_2}}
+\end{mathpar}
+
+\task{10}
+Implement $\funabt{\tau_1}{\tau_2}{f}{x}{e}$ in \LangFPC{} in \path{translate/synext.sml}. This utility should be generic in \LangFPC{}, and is not specifically tied up with \LangPyCF{} and $\dyntyabt$ type.
+You should make use of self types from \path{translate/synext-helpers.sml}, which are defined as follows:
+\begin{align*}
+  \selftyabt{\tau} &\isdef \rectyabt{t}{\arrtycst{t}{\tau}} \\
+  \selfexabt{\tau}{x}{e} &\isdef \foldexabt{t}{\arrtycst{t}{\tau}}{\lamabt{\selftyabt{\tau}}{x}{e}} \\
+  \unselfexabt{e} &\isdef \appcst{\unfoldexabt{e}}{e}
+\end{align*}
+
+Now, we may use recursive functions in our translation, given that they are definable in \LangFPC{}.
+
+We have to be careful translating recursive functions, since in the \LangFPC{} definition
+$\funabt{\tau_1}{\tau_2}{f}{x}{e}$, variable $f$ has type $\arrtycst{\tau_1}{\tau_2}$ while $x$ has type $\tau_1$. However, in the translation, every variable must have type $\dyntyabt$.
+
+\smallskip
+
+\subsection{Putting it All Together}
+
+We can now tackle the actual translation.
+Using these auxiliary notions, define the translation function $\Translate{d}$ to satisfy the
+criteria specified above.
+To get you started, here are a few cases.
+\begin{align*}
+  \Translate{x} &= x \\
+  \Translate{\dboolabt{b}} &= \dtagabt{\dbooltag}{b} \\
+  \Translate{\difabt{d}{d_1}{d_0}} &= \ifexabt{\dcastabt{\dbooltag}{\Translate{d}}}{\Translate{d_1}}{\Translate{d_0}} \\
+  \Translate{\dlistabt{\ZeqABT{n-1}{d}}} &= \dtagabt{\dlisttag}{\dlistabt{\ZeqABT{n-1}{\Translate{d}}}} \\
+  \Translate{\dindexabt{d}{d_\text{index}}} &= \dindexabt{\dcastabt{\dlisttag}{\Translate{d}}}{\dcastabt{\dinttag}{\Translate{d_\text{index}}}}
+\end{align*}
+
+\task{40} Using the auxiliary constructs given above, define all the other cases for the translation $\Translate{d}$.
+\begin{hint}
+  Keep in mind that your translation must satisfy the properties listed above.
+  In particular, according to \cref{thm:static-correctness}, all variables in the context should be of type $\dyntyabt$, and all results should be of type $\dyntyabt$.
+\end{hint}
+
+\solution{translatefpc.tex}
+
+\task{30} Implement the translation in \path{translate/translate.fun}.
+
+Note that you should use the syntax extensions in \path{translate/synext.sml}.
+You will not need to define your own labels for any purposes.
+
+\paragraph{Testing}
+Load \path{translate/sources.cm}.
+Then, you can test using \code{InterpreterTranslate}, which translates REPL and file inputs from \LangPyCF{} to \LangFPC{} before evaluation.
+\begin{lstlisting}[literate={↪}{{$\casebrcst$}}1, escapeinside={<@}{@>}]
+  - InterpreterTranslate.repl ();
+  -> False if False else True;
+  (If ((Bool false), (Bool false), (Bool true)))
+  Type (source): ok
+  Compiling...
+  (* result of translating into FPC *)
+  Type (target): (Rec (d3064 . (Sum ["bool" ↪ (Sum ["false" ↪ (Prod []), "true" ↪ (Prod [])]), "fun" ↪ (Arrow (d3064, d3064)), "int" ↪ Int, "list" ↪ (List d3064)])))
+  Evaluating... val (Fold ((Inj ("bool", (Inj ("true", (Pair [])))))))
+\end{lstlisting}
+Notice that the type of the translated code and the result of evaluating the translated code are $\dyntyabt$; this should always be the case.
+Additionally, notice that the value is simply:
+\[ \foldexabt{d}{\dynviewtyabt{d}}{\geninjcst{}{\dbooltag}{\trexcst}} \]
+Type annotations are \emph{not} printed, since they are very long and obfuscate the output.
+
+\subsection{Reflection}
+
+Observe that the compiled code for seemingly-simple \LangPyCF{} code becomes massive, due to the class tagging and checking.
+Consider the following function:
+\begin{lstlisting}[language=Python]
+  # Sum the numbers from 0 to n.
+  def triangle(n):
+      return 0 if n <= 0 else n + triangle(n + -1)
+\end{lstlisting}
+One invariant of \lstinline[language=Python]|triangle| is that it always returns an object of class $\dinttag$.
+However, in \LangPyCF{}, we must perform many redundant tag checks at run-time; for example, we must check at each layer of recursion that both \lstinline[language=Python]|n| and \lstinline[language=Python]|triangle(n + -1)| are of class $\dinttag$ before adding them together.
+
+In \LangPyCF{}, there's no way for us to get around these checks.
+However, if we work in \LangFPC{}, we can wrap efficient code so it is compatible with compiled \LangPyCF{} code.
+Continuing our example, consider an efficient (class-check free) version of the given function, $e_\textsf{tri}$:
+
+\[ e_\textsf{tri} \isdef{} \funabt{\inttycst}{\inttycst}{f}{n}{\ifexabt{\leqexabt{n}{\intexabt{0}}}{\intexabt{0}}{\plusexabt{n}{\appabt{f}{\plusexabt{n}{\intexabt{-1}}}}}} \]
+
+This code isn't immediately compatible with compiled \LangPyCF{} code, since it does not have type $\dyntyabt$.
+However, we can wrap $e_\textsf{tri}$ such that it becomes compatible while still maintaining efficiency in the ``inner loop'' of computation.%
+\footnote{This is how some Python libraries, such as \href{https://github.com/numpy/numpy}{NumPy}, manage to run fast: they use efficient C code under the hood which is wrapped in \lstinline[language=C]{PyObject} compatibility code.}
+
+\task{5}
+Define efficient code $\IsOf{e_\textsf{dyn-tri}}{\dyntycst}$ (i.e., compatible with ``dynamically typed'' code) to compute a triangle number
+using the efficient triangle number function $\IsOf{e_\textsf{tri}}{\arrtycst{\inttycst}{\inttycst}}$.
+Dynamically invoking $e_\textsf{dyn-tri}$ should perform a constant number of tags and casts, instead of performing tags and casts at each layer of recursion like the naive compiled code.
+
+\begin{hint}
+  Your solution shouldn't depend on the implementation of $e_\textsf{tri}$; in fact, it should work for any expression of type $\arrtycst{\inttycst}{\inttycst}$.
+\end{hint}
+
+\solution{triangle}
+
+% \section{\LangFPC{} by Value with Computation Types}
+
+% When we studied \LangPCF{}, we considered two formulations of the language: \LangPCF{} by name and \LangPCF{} by value. We then augmented \LangPCF{} by value with computation types $\comp{\tau}$ representing a suspended computation of type $\tau$, and introduced a modal separation between values and computations. In the following tasks, we do the same thing with \LangFPC{} by value. The new statics rules for \texttt{fold} and \texttt{unfold} with modal separation are as follows:
+
+% \begin{mathpar}
+% \infer
+% {\Gamma\vdash \IsOf{\fold{t}{\tau}{e}}{\rectyabt{t}{\tau}}}
+% {\Gamma\vdash \IsOf{e}{[\rectyabt{t}{\tau}/t]\tau}}
+
+% \infer
+% {\eTypeJC{\unfold{e}}{[\rectyabt{t}{\tau}/t]\tau}}
+% {\typeJC{e}{\rectyabt{t}{\tau}}}
+
+% \end{mathpar}
+
+% We also have the rules for $\kw{bnd}$ and $\kw{comp}$ from the \LangPCF{} by value supplement.
+
+% Consider the type $\rectyabt{t}{\tau}$ when $\tau$ is positive. In $\LangFPC{}$ by value, this encodes an inductive type, but in $\LangFPC{}$ by name, this only encodes a coinductive type. In fact, it is \textit{impossible} to define an inductive type in $\LangFPC{}$ by name. However, we will show that if we have computation types, we can define coinductive types in $\LangFPC{}$ by value.
+
+% \task{5} First, recall how self-referential types are definable in \LangFPC{}:
+% \[\kw{self}(\tau) \triangleq \rectyabt{t}{\arrtycst{t}{\tau}}\]
+% The encoding of $\kw{self}\{\tau\}(x.e)$ works the same in modal $\LangFPC{}$, but the encoding of $\kw{unroll}(e)$ does not quite typecheck. Rewrite the encoding so it does.
+
+% \solution{unroll.tex}
+
+% \task{5} Encode the coinductive type $\nu(t.\tau)$ in modal \LangFPC{}. Your encoding should include a computation type.
+
+% \solution{coitype.tex}
+
+% \task{10} Encode $\kw{out}\{t.\tau\}(e)$ in modal \LangFPC{}. Your encoding should satisfy the following statics rule:
+% \[
+% \infer
+% {\eTypeJC{\kw{out}\{t.\tau\}(e)}{[\nu(t.\tau)/t]\tau}}
+% {\typeJC{e}{\nu(t.\tau)}}
+% \]
+% It should also satisfy the dynamics rules with your encoding of $\kw{gen}$ below. (Here we use the word $\kw{out}$ for the elimination form for coinductive types to distinguish it from $\kw{unfold}$ for recursive types.)
+
+% \textbf{Hint:} Make sure to use binds at appropriate places to deal with computations and make your code typecheck.
+
+% \solution{coiout.tex}
+
+% \task{20} Encode $\kw{gen}[\sigma]\{t.\tau\}(x.e)(e')$ in modal \LangFPC{}. Your encoding should satisfy the following statics fule:
+% \[
+% \infer
+% {\typeJC{\kw{gen}[\sigma]\{t.\tau\}(x.e)(e')}{\nu(t.\tau)}}
+% {\typeJC{e'}{\sigma} & \eTypeJ{\ctx,x:\sigma}{e}{[\sigma/t]\tau}}
+% \]
+% In particular, make sure that $\kw{gen}$ returns a value and has the correct behavior when $\kw{out}$ is applied to it. You may use $\kw{self}$ and $\kw{unroll}$, and you may also use $\kw{map}$. For simplicity, assume $\kw{map}$ takes in expressions.
+
+% \textbf{Hint:} First, try writing a self-referential function that takes in a state and outputs the coinductive value with that state. To make $\kw{gen}$ a value, use a fold with the correct type and call the self-referential function where necessary. You may want to look at the dynamics for coinductive types to guide your implementation.
+
+% \solution{coigen.tex}
+
+\appendix
+
+\section{Definition of \LangPyCF{}}\label{appendix:PyCF}
+
+\subsection{Grammar}
+
+The grammar is given in \Cref{sec:PyCF-grammar}.
+
+\subsection{Dynamics}
+
+\subsubsection{Tag Refutation}
+
+\fbox{$\DIsnt{d}{c}$}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\DIsnt{\dboolabt{b}}{\dinttag}}
+
+  \inferrule
+    {\strut}
+    {\DIsnt{\dboolabt{b}}{\dlisttag}}
+
+  \inferrule
+    {\strut}
+    {\DIsnt{\dboolabt{b}}{\dfuntag}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\DIsnt{\dintabt{i}}{\dbooltag}}
+
+  \inferrule
+    {\strut}
+    {\DIsnt{\dintabt{i}}{\dlisttag}}
+
+  \inferrule
+    {\strut}
+    {\DIsnt{\dintabt{i}}{\dfuntag}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\IsVal{d_0} \\ \dots \\ \IsVal{d_{n - 1}}}
+    {\DIsnt{\dlistabt{\ZeqABT{n-1}{d}}}{\dbooltag}}
+
+  \inferrule
+    {\IsVal{d_0} \\ \dots \\ \IsVal{d_{n - 1}}}
+    {\DIsnt{\dlistabt{\ZeqABT{n-1}{d}}}{\dinttag}}
+
+  \inferrule
+    {\IsVal{d_0} \\ \dots \\ \IsVal{d_{n - 1}}}
+    {\DIsnt{\dlistabt{\ZeqABT{n-1}{d}}}{\dfuntag}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\DIsnt{\dfunabt{f}{x}{d}}{\dbooltag}}
+
+  \inferrule
+    {\strut}
+    {\DIsnt{\dfunabt{f}{x}{d}}{\dinttag}}
+
+  \inferrule
+    {\strut}
+    {\DIsnt{\dfunabt{f}{x}{d}}{\dlisttag}}
+\end{mathpar}
+
+\subsubsection{Stepping}
+
+\fbox{$\IsVal{d}$} \quad
+\fbox{$\IsErr{d}$} \quad
+\fbox{$d \longmapsto d'$}  % \fbox{$\Steps{d}{d'}$} % has tall box due to optional subscript
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\IsVal{\dboolabt{b}}}
+
+  \inferrule
+    {\Steps{d}{d'}}
+    {\Steps{\difabt{d}{d_1}{d_0}}{\difabt{d'}{d_1}{d_0}}}
+
+  \inferrule
+    {\IsErr{d}}
+    {\IsErr{\difabt{d}{d_1}{d_0}}}
+
+  \inferrule
+    {\strut}
+    {\Steps{\difabt{\dboolabt{\trexabt}}{d_1}{d_0}}{d_1}}
+
+  \inferrule
+    {\strut}
+    {\Steps{\difabt{\dboolabt{\faexabt}}{d_1}{d_0}}{d_0}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\IsVal{\dintabt{i}}}
+
+  \inferrule
+    {\Steps{d_1}{d_1'}}
+    {\Steps{\dplusabt{d_1}{d_2}}{\dplusabt{d_1'}{d_2}}}
+
+  \inferrule
+    {\IsErr{d_1}}
+    {\IsErr{\dplusabt{d_1}{d_2}}}
+
+  \inferrule
+    {
+      \IsVal{d_1} \\
+      \Steps{d_2}{d_2'}
+    }
+    {\Steps{\dplusabt{d_1}{d_2}}{\dplusabt{d_1}{d_2'}}}
+
+  \inferrule
+    {
+      \IsVal{d_1} \\
+      \IsErr{d_2}
+    }
+    {\IsErr{\dplusabt{d_1}{d_2}}}
+
+  \inferrule
+    {\strut}
+    {\Steps{\dplusabt{\dintabt{i_1}}{\dintabt{i_2}}}{\dintabt{i_1 + i_2}}}
+
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < m$}) \\
+      \IsVal{d'_j}\ (\text{for all $0 \le j < n$})
+    }
+    {\Steps{\dplusabt{\dlistabt{\ZeqABT{m-1}{d}}}{\dlistabt{\ZeqABT{n-1}{d'}}}}{\dlistabt{\ZeqABT{m-1}{d}; \ZeqABT{n-1}{d'}}}}
+
+  \inferrule
+    {
+      \IsVal{d} \\
+      \DIsnt{d}{\dinttag}
+    }
+    {\IsErr{\dplusabt{\dintabt{i}}{d}}}
+
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < m$}) \\
+      \IsVal{d} \\
+      \DIsnt{d}{\dlisttag}
+    }
+    {\IsErr{\dplusabt{\dlistabt{\ZeqABT{m-1}{d}}}{d}}}
+
+  \inferrule
+    {
+      \IsVal{d_1} \\
+      \IsVal{d_2} \\
+      \DIsnt{d_1}{\dinttag} \\
+      \DIsnt{d_1}{\dlisttag}
+    }
+    {\IsErr{\dplusabt{d_1}{d_2}}}
+
+  \inferrule
+    {\Steps{d_1}{d_1'}}
+    {\Steps{\dleqabt{d_1}{d_2}}{\dleqabt{d_1'}{d_2}}}
+
+  \inferrule
+    {\IsErr{d_1}}
+    {\IsErr{\dleqabt{d_1}{d_2}}}
+
+  \inferrule
+    {
+      \IsVal{d_1} \\
+      \Steps{d_2}{d_2'}
+    }
+    {\Steps{\dleqabt{d_1}{d_2}}{\dleqabt{d_1}{d_2'}}}
+
+  \inferrule
+    {
+      \IsVal{d_1} \\
+      \IsErr{d_2}
+    }
+    {\IsErr{\dleqabt{d_1}{d_2}}}
+
+  \inferrule
+    {i_1 \le i_2}
+    {\Steps{\dleqabt{\dintabt{i_1}}{\dintabt{i_2}}}{\dboolabt{\trexabt}}}
+
+  \inferrule
+    {i_1 \not\le i_2}
+    {\Steps{\dleqabt{\dintabt{i_1}}{\dintabt{i_2}}}{\dboolabt{\faexabt}}}
+
+  \inferrule
+    {\DIsnt{d_1}{\dinttag}}
+    {\IsErr{\dleqabt{d_1}{d_2}}}
+
+  \inferrule
+    {\DIsnt{d_2}{\dinttag}}
+    {\IsErr{\dleqabt{\dintabt{i_1}}{d_2}}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < k$}) \\
+      \Steps{d_k}{d_k'} \\
+      d_m' = d_m\ (\text{for all $m \ne k$})
+    }
+    {\Steps{\dlistabt{\ZeqABT{n-1}{d}}}{\dlistabt{\ZeqABT{n-1}{d'}}}}
+
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < k$}) \\
+      \IsErr{d_k}
+    }
+    {\IsErr{\dlistabt{\ZeqABT{n-1}{d}}}}
+
+  \inferrule
+    {\IsVal{d_j}\ (\text{for all $0 \le j < n$})}
+    {\IsVal{\dlistabt{\ZeqABT{n-1}{d}}}}
+
+  \inferrule
+    {\Steps{d}{d'}}
+    {\Steps{\dindexabt{d}{d_\text{index}}}{\dindexabt{d'}{d_\text{index}}}}
+
+  \inferrule
+    {\IsErr{d}}
+    {\IsErr{\dindexabt{d}{d_\text{index}}}}
+
+  \inferrule
+    {\IsVal{d} \\ \Steps{d_\text{index}}{d_\text{index}'}}
+    {\Steps{\dindexabt{d}{d_\text{index}}}{\dindexabt{d}{d_\text{index}'}}}
+
+  \inferrule
+    {\IsVal{d} \\ \IsErr{d_\text{index}}}
+    {\IsErr{\dindexabt{d}{d_\text{index}}}}
+
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < n$}) \\
+      0 \le i < n
+    }
+    {\Steps{\dindexabt{\dlistabt{\ListABT{d_0}{d_{n-1}}}}{\intexabt{i}}}{d_i}}
+
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < n$}) \\
+      \lnot(0 \le i < n)
+    }
+    {\IsErr{\dindexabt{\dlistabt{\ListABT{d_0}{d_{n-1}}}}{\intexabt{i}}}}
+
+  \inferrule
+    {
+      \IsVal{d} \\
+      \DIsnt{d}{\dlisttag} \\
+      \IsVal{d_\text{index}}
+    }
+    {\IsErr{\dindexabt{d}{d_\text{index}}}}
+
+  \inferrule
+    {
+      \IsVal{d_j}\ (\text{for all $0 \le j < n$}) \\
+      \IsVal{d_\text{index}} \\
+      \DIsnt{d_\text{index}}{\dinttag}
+    }
+    {\IsErr{\dindexabt{\dlistabt{\ListABT{d_0}{d_{n-1}}}}{d_\text{index}}}}
+
+  \inferrule
+    {\Steps{d}{d'}}
+    {\Steps{\dlenabt{d}}{\dlenabt{d'}}}
+
+  \inferrule
+    {\IsErr{d}}
+    {\IsErr{\dlenabt{d}}}
+
+  \inferrule
+    {\IsVal{d_j}\ (\text{for all $0 \le j < n$})}
+    {\Steps{\dlenabt{\dlistabt{\ListABT{d_0}{d_{n-1}}}}}{\intexabt{n}}}
+
+  \inferrule
+    {
+      \IsVal{d} \\
+      \DIsnt{d}{\dlisttag}
+    }
+    {\IsErr{\dlenabt{d}}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\IsVal{\dfunabt{f}{x}{d}}}
+
+  \inferrule
+    {\Steps{d}{d'}}
+    {\Steps{\dappabt{d}{d_1}}{\dappabt{d'}{d_1}}}
+
+  \inferrule
+    {\IsErr{d}}
+    {\IsErr{\dappabt{d}{d_1}}}
+
+  \inferrule
+    {
+      \IsVal{d} \\
+      \Steps{d_1}{d_1'}
+    }
+    {\Steps{\dappabt{d}{d_1}}{\dappabt{d}{d_1'}}}
+
+  \inferrule
+    {
+      \IsVal{d} \\
+      \IsErr{d_1}
+    }
+    {\IsErr{\dappabt{d}{d_1}}}
+
+  \inferrule
+    {\IsVal{d_1}}
+    {\Steps{\dappabt{\dfunabt{f}{x}{d_2}}{d_1}}{\Subst{\dfunabt{f}{x}{d_2},d_1}{f,x}{d_2}}}
+
+  \inferrule
+    {
+      \IsVal{d} \\
+      \DIsnt{d}{\dfuntag} \\
+      \IsVal{d_1}
+    }
+    {\IsErr{\dappabt{d}{d_1}}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\Steps{d_1}{d_1'}}
+    {\Steps{\dletabt{d_1}{x}{d_2}}{\dletabt{d_1'}{x}{d_2}}}
+
+  \inferrule
+    {\IsVal{d_1}}
+    {\Steps{\dletabt{d_1}{x}{d_2}}{\Subst{d_1}{x}{d_2}}}
+
+  \inferrule
+    {\IsErr{d_1}}
+    {\IsErr{\dletabt{d_1}{x}{d_2}}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\Steps{d}{d'}}
+    {\Steps{\disinstanceabt{d}{c}}{\disinstanceabt{d'}{c}}}
+
+  \inferrule
+    {\IsErr{d}}
+    {\IsErr{\disinstanceabt{d}{c}}}
+  \\
+
+  \inferrule
+    {\strut}
+    {\Steps{\disinstanceabt{\dboolabt{b}}{\dbooltag}}{\dboolabt{\trexabt}}}
+
+  \inferrule
+    {\DIsnt{d}{\dbooltag}}
+    {\Steps{\disinstanceabt{d}{\dbooltag}}{\dboolabt{\faexabt}}}
+  \\
+
+  \inferrule
+    {\strut}
+    {\Steps{\disinstanceabt{\dintabt{i}}{\dinttag}}{\dboolabt{\trexabt}}}
+
+  \inferrule
+    {\DIsnt{d}{\dinttag}}
+    {\Steps{\disinstanceabt{d}{\dinttag}}{\dboolabt{\faexabt}}}
+  \\
+
+  \inferrule
+    {
+      \IsVal{d_j}\ \text{(for all $0 \le j < n$)}
+    }
+    {\Steps{\disinstanceabt{\dlistabt{\ZeqABT{n-1}{d}}}{\dlisttag}}{\dboolabt{\trexabt}}}
+
+  \inferrule
+    {\DIsnt{d}{\dlisttag}}
+    {\Steps{\disinstanceabt{d}{\dlisttag}}{\dboolabt{\faexabt}}}
+  \\
+
+  \inferrule
+    {\strut}
+    {\Steps{\disinstanceabt{\dfunabt{f}{x}{d}}{\dfuntag}}{\dboolabt{\trexabt}}}
+
+  \inferrule
+    {\DIsnt{d}{\dfuntag}}
+    {\Steps{\disinstanceabt{d}{\dfuntag}}{\dboolabt{\faexabt}}}
+\end{mathpar}
+
+\section{Definition of \LangFPC{}}\label{appendix:FPC}
+
+In our formulation of \LangFPC{}, we have:
+\begin{itemize}
+  \item \emph{labeled products and sums}, where there is a sort of labels which we assume are ordered
+  \item a run-time error construct which causes the program to halt
+  \item integer and list primitives
+\end{itemize}
+
+\subsection{Grammar}
+
+\[
+\begin{array}{l c c l@{\qquad} l l}
+\text{\bf Sort} &      &     & \text{\bf Abstract form}   & \text{\bf Concrete form} & \\
+\Sort{Label}    & l    & ::= & \dots                      & \dots                    & (\text{labels}) \\
+                &      &     &                            & \\
+\TypeSort       & \tau & ::= & \inttyabt                  & \inttycst                & (\text{primitive}) \\
+                &      &     & \listtyabt{\tau}           & \listtycst{\tau}         & (\text{primitive}) \\
+                &      &     & \genprodabt{L}{l}{\tau_l}  & \genprodcst{L}{l}{\tau_l} \\
+                &      &     & \gensumabt{L}{l}{\tau_l}   & \gensumcst{L}{l}{\tau_l} \\
+                &      &     & \arrtyabt{\tau_1}{\tau_2}  & \arrtycst{\tau_1}{\tau_2} \\
+                &      &     & \rectyabt{t}{\tau}         & \rectycst{t}{\tau} \\
+                &      &     &                            & \\
+\ExprSort       & e    & ::= & x                          & x \\
+                &      &     & \errorexabt{\tau}          & \errorexcst{\tau} \\
+                &      &     & \intexabt{i}               & \intexcst{i}             & (\dots, \kw{-2}, \kw{-1}, \kw{0}, \kw{1}, \kw{2}, \dots) \\
+                &      &     & \plusexabt{e_1}{e_2}       & \plusexcst{e_1}{e_2}     & (\text{integer addition}) \\
+                &      &     & \leqexabt{d_1}{d_2}        & \leqexcst{d_1}{d_2} \\
+                &      &     & \listexabt{\ZeqABT{n-1}{e}}& \listexcst{\ZeqABT{n-1}{e}} \\
+                &      &     & \appendexabt{e_1}{e_2}     & \appendexcst{e_1}{e_2} \\
+                &      &     & \indexexabt{e}{e_\text{index}} & \indexexcst{e}{e_\text{index}} \\
+                &      &     & \lenexabt{e}               & \lenexcst{e} \\
+                &      &     & \gentupleabt{L}{l}{e_l}    & \gentuplecst{L}{l}{e_l}  & (\text{labeled tuple}) \\
+                &      &     & \genprojabt{L}{l}{e}       & \genprojcst{L}{l}{e}     & (\text{projection from a labeled prod.}) \\
+                &      &     & \geninjabt{\genff{L}{l}{\tau_l}}{l}{e} & \geninjcst{\genff{L}{l}{\tau_l}}{l}{e} & (\text{injection into a labeled sum}) \\
+                &      &     & \gencaseabt{L}{e}{l}{x_l}{e_l} & \gencasecst{L}{e}{l}{x_l}{e_l} & (\text{labeled case}) \\
+                &      &     & \foldexabt{t}{\tau}{e}     & \foldexcst{t}{\tau}{e} \\
+                &      &     & \unfoldexabt{e}            & \unfoldexcst{e} \\
+                &      &     & \lamabt{\tau}{x}{e}        & \lamcst{\tau}{x}{e} \\
+                &      &     & \appabt{e}{e_1}            & \appcst{e}{e_1}
+\end{array}
+\]
+
+\subsection{Statics}
+
+\subsubsection{Type Well-formedness}
+
+\fbox{$\Delta \entails \IsType{\tau}$} \par
+Informally: ``$\tau$ only uses type variables present in $\Delta$'', where $\Delta ::= \IsType{t_1}, \dots, \IsType{t_n}$.
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\Delta, \IsType{t} \entails \IsType{t}}
+
+  \inferrule
+    {\strut}
+    {\Delta \entails \IsType{\inttyabt}}
+
+  \inferrule
+    {\Delta \entails \IsType{\tau}}
+    {\Delta \entails \IsType{\listtyabt{\tau}}}
+
+  \inferrule
+    {\Delta \entails \IsType{\tau_l}\ \text{(for all $l \in L$)}}
+    {\Delta \entails \IsType{\genprodabt{L}{l}{\tau_l}}}
+
+  \inferrule
+    {\Delta \entails \IsType{\tau_l}\ \text{(for all $l \in L$)}}
+    {\Delta \entails \IsType{\gensumabt{L}{l}{\tau_l}}}
+
+  \inferrule
+    {
+      \Delta \entails \IsType{\tau_1} \\
+      \Delta \entails \IsType{\tau_2}
+    }
+    {\Delta \entails \IsType{\arrtyabt{\tau_1}{\tau_2}}}
+
+  \inferrule
+    {\Delta, \IsType{t} \entails \IsType{\tau}}
+    {\Delta \entails \IsType{\rectyabt{t}{\tau}}}
+\end{mathpar}
+
+\subsubsection{Expression Typing}
+\fbox{$\Gamma \entails \IsOf{e}{\tau}$}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\Gamma, \IsOf{x}{\tau} \entails \IsOf{x}{\tau}}
+
+  \inferrule
+    {\entails \IsType{\tau}}
+    {\Gamma \entails \IsOf{\errorexabt{\tau}}{\tau}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\Gamma \entails \IsOf{\intexabt{i}}{\inttyabt}}
+
+  \inferrule
+    {
+      \Gamma \entails \IsOf{e_1}{\inttyabt} \\
+      \Gamma \entails \IsOf{e_2}{\inttyabt}
+    }
+    {\Gamma \entails \IsOf{\plusexabt{e_1}{e_2}}{\inttyabt}}
+
+  \inferrule
+    {
+      \Gamma \entails \IsOf{e_1}{\inttyabt} \\
+      \Gamma \entails \IsOf{e_2}{\inttyabt}
+    }
+    {\Gamma \entails \IsOf{\leqexabt{e_1}{e_2}}{\booltyabt}}
+\end{mathpar}
+
+Note, we are use the following abbreviation:
+\begin{align*}
+  \unittyabt &\isdef \genprodabt{\varnothing}{l}{-} & \text{(empty labeled product)} \\
+  \booltyabt &\isdef \gensumabt{\kw{true}, \kw{false}}{l}{\unittyabt}
+\end{align*}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \entails \IsType{\tau} \\
+      \Gamma \entails \IsOf{e_j}{\tau}\ \text{(for all $0 \le j < n$)}
+    }
+    {\Gamma \entails \IsOf{\listexabt{\ZeqABT{n-1}{e}}}{\listtyabt{\tau}}}
+
+  \inferrule
+    {
+      \Gamma \entails \IsOf{e_1}{\listtyabt{\tau}} \\
+      \Gamma \entails \IsOf{e_2}{\listtyabt{\tau}}
+    }
+    {\Gamma \entails \IsOf{\appendexabt{e_1}{e_2}}{\listtyabt{\tau}}}
+
+  \inferrule
+    {
+      \Gamma \entails \IsOf{e}{\listtyabt{\tau}} \\
+      \Gamma \entails \IsOf{e_\text{index}}{\inttyabt}
+    }
+    {\Gamma \entails \IsOf{\indexexabt{e}{e_\text{index}}}{\tau}}
+
+  \inferrule
+    {\Gamma \entails \IsOf{e}{\listtyabt{\tau}}}
+    {\Gamma \entails \IsOf{\lenexabt{e}}{\inttyabt}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \entails \IsType{\tau_1} \\
+      \Gamma, \IsOf{x}{\tau_1} \entails \IsOf{e}{\tau_2}
+    }
+    {\Gamma \entails \IsOf{\lamabt{\tau_1}{x}{e}}{\arrtyabt{\tau_1}{\tau_2}}}
+
+  \inferrule
+    {
+      \Gamma \entails \IsOf{e}{\arrtyabt{\tau_1}{\tau_2}} \\
+      \Gamma \entails \IsOf{e_1}{\tau_1}
+    }
+    {\Gamma \entails \IsOf{\appabt{e}{e_1}}{\tau_2}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\Gamma \entails \IsOf{e_l}{\tau_l}\ \text{(for all $l \in L$)}}
+    {\Gamma \entails \IsOf{\gentupleabt{L}{l}{e_l}}{\genprodabt{L}{l}{\tau_l}}}
+
+  \inferrule
+    {\Gamma \entails \IsOf{e}{\genprodabt{L}{l}{\tau_l}}}
+    {\Gamma \entails \IsOf{\genprojabt{L}{l}{e}}{\tau_l}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \entails \IsType{\tau_l}\ \text{(for all $l \in L$)} \\
+      \Gamma \entails \IsOf{e}{\tau_l}
+    }
+    {\Gamma \entails \IsOf{\geninjabt{\genff{L}{l}{\tau_l}}{l}{e}}{\gensumabt{L}{l}{\tau_l}}}
+
+  \inferrule
+    {
+      \entails \IsType{\tau} \\
+      \Gamma \entails \IsOf{e}{\gensumabt{L}{l}{\tau_l}} \\
+      \Gamma, \IsOf{x_l}{\tau_l} \entails \IsOf{e_l}{\tau}\ \text{(for all $l \in L$)}
+    }
+    {\Gamma \entails \IsOf{\gencaseabt{L}{e}{l}{x_l}{e_l}}{\tau}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \IsType{t} \entails \IsType{\tau} \\
+      \Gamma \entails \IsOf{e}{\Subst{\rectyabt{t}{\tau}}{t}{\tau}}
+    }
+    {\Gamma \entails \IsOf{\foldexabt{t}{\tau}{e}}{\rectyabt{t}{\tau}}}
+
+  \inferrule
+    {\Gamma \entails \IsOf{e}{\rectyabt{t}{\tau}}}
+    {\Gamma \entails \IsOf{\unfoldexabt{e}}{\Subst{\rectyabt{t}{\tau}}{t}{\tau}}}
+\end{mathpar}
+
+\subsection{Dynamics}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\IsErr{\errorexabt{\tau}}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\IsVal{\intexabt{i}}}
+  \\
+
+  \inferrule
+    {\Steps{e_1}{e_1'}}
+    {\Steps{\plusexabt{e_1}{e_2}}{\plusexabt{e_1'}{e_2}}}
+
+  \inferrule
+    {\IsVal{e_1} \\ \Steps{e_2}{e_2'}}
+    {\Steps{\plusexabt{e_1}{e_2}}{\plusexabt{e_1}{e_2'}}}
+
+  \inferrule
+    {\strut}
+    {\Steps{\plusexabt{\intexabt{i_1}}{\intexabt{i_2}}}{\intexabt{i_1 + i_2}}}
+  \\
+
+  \inferrule
+    {\Steps{e_1}{e_1'}}
+    {\Steps{\leqexabt{e_1}{e_2}}{\leqexabt{e_1'}{e_2}}}
+
+  \inferrule
+    {\IsVal{e_1} \\ \Steps{e_2}{e_2'}}
+    {\Steps{\leqexabt{e_1}{e_2}}{\leqexabt{e_1}{e_2'}}}
+  \\
+
+  \inferrule
+    {i_1 \le i_2}
+    {\Steps{\leqexabt{\intexabt{i_1}}{\intexabt{i_2}}}{\trexabt}}
+
+  \inferrule
+    {i_1 \not\le i_2}
+    {\Steps{\leqexabt{\intexabt{i_1}}{\intexabt{i_2}}}{\faexabt}}
+\end{mathpar}
+
+Note, we are use the following abbreviation:
+\begin{align*}
+  \unitexabt &\isdef \gentupleabt{\varnothing}{l}{-} & \text{(empty labeled tuple)} \\
+  \trexabt   &\isdef \geninjabt{\kw{true}, \kw{false}}{\kw{true}}{\unitexabt} \\
+  \faexabt   &\isdef \geninjabt{\kw{true}, \kw{false}}{\kw{false}}{\unitexabt}
+\end{align*}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \IsVal{e_j}\ (\text{for all $0 \le j < k$}) \\
+      \Steps{e_k}{e_k'} \\
+      e_m' = e_m\ (\text{for all $m \ne k$})
+    }
+    {\Steps{\listexabt{\ZeqABT{n-1}{e}}}{\listexabt{\ZeqABT{n-1}{e'}}}}
+
+  \inferrule
+    {
+      \IsVal{e_j}\ (\text{for all $0 \le j < k$}) \\
+      \IsErr{e_k}
+    }
+    {\IsErr{\listexabt{\ZeqABT{n-1}{e}}}}
+
+  \inferrule
+    {\IsVal{e_j}\ (\text{for all $0 \le j < n$})}
+    {\IsVal{\listexabt{\ZeqABT{n-1}{e}}}}
+  \\
+
+  \inferrule
+    {\Steps{e_1}{e_1'}}
+    {\Steps{\appendexabt{e_1}{e_2}}{\appendexabt{e_1'}{e_2}}}
+
+  \inferrule
+    {\IsVal{e_1} \\ \Steps{e_2}{e_2'}}
+    {\Steps{\appendexabt{e_1}{e_2}}{\appendexabt{e_1}{e_2'}}}
+
+  \inferrule
+    {
+      \IsVal{e_j}\ (\text{for all $0 \le j < m$}) \\
+      \IsVal{e'_j}\ (\text{for all $0 \le j < n$})
+    }
+    {\Steps{\appendexabt{\listexabt{\ListABT{e_0}{e_{m-1}}}}{\listexabt{\ListABT{e'_0}{e'_{n-1}}}}}{\listexabt{\ListABT{e_0}{e_{m-1}};\ListABT{e'_0}{e'_{n-1}}}}}
+  \\
+
+  \inferrule
+    {\Steps{e}{e'}}
+    {\Steps{\indexexabt{e}{e_\text{index}}}{\indexexabt{e'}{e_\text{index}}}}
+
+  \inferrule
+    {\IsVal{e} \\ \Steps{e_\text{index}}{e_\text{index}'}}
+    {\Steps{\indexexabt{e}{e_\text{index}}}{\indexexabt{e}{e_\text{index}'}}}
+
+  \inferrule
+    {
+      \IsVal{e_j}\ (\text{for all $0 \le j < n$}) \\
+      0 \le i < n
+    }
+    {\Steps{\indexexabt{\listexabt{\ListABT{e_0}{e_{n-1}}}}{\intexabt{i}}}{e_i}}
+
+  \inferrule
+    {
+      \IsVal{e_j}\ (\text{for all $0 \le j < n$}) \\
+      \lnot(0 \le i < n)
+    }
+    {\IsErr{\indexexabt{\listexabt{\ListABT{e_0}{e_{n-1}}}}{\intexabt{i}}}}
+  \\
+
+  \inferrule
+    {\Steps{e}{e'}}
+    {\Steps{\lenexabt{e}}{\lenexabt{e'}}}
+
+  \inferrule
+    {\IsErr{e}}
+    {\IsErr{\lenexabt{e}}}
+
+  \inferrule
+    {\IsVal{e_j}\ (\text{for all $0 \le j < n$})}
+    {\Steps{\lenexabt{\listexabt{\ListABT{e_0}{e_{n-1}}}}}{\intexabt{n}}}
+\end{mathpar}
+
+\begin{mathpar}
+  \inferrule
+    {
+      \IsVal{e_l}\ (\text{for all $l < k$}) \\
+      \Steps{e_k}{e_k'} \\
+      e_m' = e_m\ (\text{for all $m \ne k$})
+    }
+    {\Steps{\gentupleabt{L}{l}{e_l}}{\gentupleabt{L}{l}{e_l'}}}
+
+  \inferrule
+    {
+      \IsVal{e_l}\ (\text{for all $l < k$}) \\
+      \IsErr{e_k}
+    }
+    {\IsErr{\gentupleabt{L}{l}{e_l}}}
+
+  \inferrule
+    {\IsVal{e_l}\ (\text{for all $l$})}
+    {\IsVal{\gentupleabt{L}{l}{e_l}}}
+
+  \inferrule
+    {\Steps{e}{e'}}
+    {\Steps{\genprojabt{L}{l}{e}}{\genprojabt{L}{l}{e'}}}
+
+  \inferrule
+    {\IsVal{e_l}\ (\text{for all $l$})}
+    {\Steps{\genprojabt{L}{l}{\gentupleabt{L}{l}{e_l}}}{e_l}}
+\end{mathpar}
+
+\newpage
+\ifthenelse{\value{taskPercentCounter} = 200}{\typeout{Good: The points adds to 200.}}{\typeout{Warning: 200 POINTS ADDS UP TO
+\arabic{taskPercentCounter} WHICH IS NOT 200. You probably want to
+correct the points.}}
+
+
+\end{document}

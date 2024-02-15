@@ -1,0 +1,22 @@
+Group
+  structure Symbols
+  functor Parser
+is
+  ../../cmlib/cmlib.cm
+  ../abt.cm
+
+  parseterm.sig
+  parseterm.sml
+  stmt.sig
+  stmt.sml
+  parsestmt.sig
+  parsestmt.sml
+
+  symboltable.sml
+  token.sml
+  lexer.sig
+  lexer.sml
+  lexmain.cmlex.sml
+  parser.sig
+  parser.sml
+  parsemain.cmyacc.sml

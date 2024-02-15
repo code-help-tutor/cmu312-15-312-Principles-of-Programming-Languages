@@ -1,0 +1,30 @@
+sort typ =
+| Cont of typ
+| Unit
+| Prod of typ * typ
+| Void
+| Sum of typ * typ
+| Arrow of typ * typ
+| Nat
+| A
+| B
+| C
+| D
+
+sort exp =
+| Let of exp * (exp binding . exp)
+| Letcc of typ * (exp binding . exp)
+| Throw of typ * exp * exp
+| Unit
+| Tuple of exp * exp
+| Split of exp * ((exp binding * exp binding) . exp)
+| Abort of typ * exp
+| InjL of (typ * typ) * exp
+| InjR of (typ * typ) * exp
+| Case of exp * (exp binding . exp) * (exp binding . exp)
+| Fun of (typ * typ) * ((exp binding * exp binding) . exp)
+| Lam of (exp binding * typ) . exp
+| Ap of exp * exp
+| Zero
+| Succ of exp
+| Ifz of exp * exp * (exp binding . exp)

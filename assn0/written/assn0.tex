@@ -1,0 +1,970 @@
+\documentclass[11pt]{article}
+
+\input{setup}
+\input{setup-assn0}
+\input{defs}
+\input{issolution}
+
+\title{Assignment 0: \\
+       Judgments, Rules, and Church's $\lambda$-Calculus}
+
+\begin{document}
+
+\maketitle
+
+Welcome to 15-312!
+In this assignment, we will explore foundational concepts in programming languages through the lens of Church's $\lambda$-calculus.
+
+In this first assignment, we are introducing the use of \emph{inductive definitions} of
+\emph{judgments} about terms in the $\lambda$-calculus.
+The $\lambda$-calculus is a remarkably simple and elegant model of computation formulated by Church in the early 1930's that is based on the concept of a \emph{mathematical variable}, which is given meaning by \emph{substitution}.
+$\lambda$-terms may be thought of as functions acting on $\lambda$-terms, one of which is the $\lambda$-term itself---the $\lambda$-calculus is inherently self-referential, which is the source of its expressive power.
+In fact, the $\lambda$-calculus can express all functions that can be defined by a Turing machine.
+It is \emph{expected} that you will find the $\lambda$-calculus itself to be somewhat mysterious, mystifying, and non-obvious.
+Your goal is not to master the $\lambda$-calculus as a model of computation, but rather to understand it as a microscopic programming language exhibiting core concepts of central importance.
+
+Although this is the first assignment, it is advisable to take it seriously.
+This assignment is the ``on-ramp'' to the course.
+It involves a lot of unfamiliar concepts and requires good programming skills.
+We recommend you start early; please don't hesitate to ask for help on Piazza and/or at office hours if you get stuck!
+
+
+\section{Course Mechanics}
+
+The purpose of this question is to ensure that you get familiar with this course's policies.
+
+\paragraph{Academic Integrity}
+Go to the Academic Integrity page on the course Canvas to understand the whiteboard policy for collaboration regarding the homework assignments, the late policy regarding timeliness of homework submissions, and the use of Piazza.
+As in any class, you are responsible for following our collaboration policy; violations will be handled according to university policy.
+
+\paragraph{Submission}
+Please read \cref{sec:submitting} to understand how written and code submissions for this class work.
+
+\begin{task}{5}
+  Decide whether each of the following statements are consistent with course policies.
+  Briefly explain your answers.
+
+  \begin{enumerate}
+    \item
+      Jeanne, Daniel, and Nitin split a pizza while talking about their homework, and by the end of lunch, their pizza box is covered with notes and solutions.
+      Daniel throws out the pizza box and the three go to class, writing their solutions up separately that evening.
+
+    \item
+      Mia and Yue write out a solution to Problem 4 on a whiteboard in Wean Hall.
+      Then, they erase the whiteboard and run to Gates.
+      Five minutes later, each student types up the solution on their laptop, sitting at separate tables.
+
+    \item
+      Pressed for time, Matthew notices that many of the test cases for an implementation task can be passed with a trivial solution.
+      After submitting his code to the autograder, he is relieved to learn that he is guaranteed at least a 72\% score on this task.
+
+    % \item
+    %   After writing up a beautiful, clear rule induction proof on paper, Yiyang is frustrated that she is still required to type it up in \LaTeX{}.
+
+    % \item
+    %   Jake takes Quiz~5 right after waking up.
+    %   After class later that day, he bumps into Charles and says: ``Have you taken the 312 quiz yet? The concurrency question was impossible!''
+  \end{enumerate}
+\end{task}
+\solution{policy}
+
+
+\section{Judgments and Rules}
+
+Throughout the semester, we will define programming languages and other concepts via \emph{judgments}, which can be thought of as mathematical relations.
+In this section, we will consider simple judgments about lists of natural numbers, where natural numbers are defined by the judgment $\boxed{\IsNat{n}}$ in \PFPL[2].
+We will usually abbreviate natural numbers via numeric literals, that is, instead of $\succcst{\succcst{\zerocst}}$, we simply write $2$.
+First, we define what it means to be a list via the judgment $\boxed{\IsList{l}}$, which can be thought of as a unary relation.
+
+Judgements in this class are usually defined by induction using \emph{\href{https://ncatlab.org/nlab/show/deductive+system}{inference rules}}.
+In general, an inference rule is of the following form, where $n \ge 0$:
+\[ \inferrule{J_1 \\ \dots \\ J_n}{J} \]
+Each judgment $J_i$ is a \emph{premise} (i.e., assumption) and the judgment $J$ is the \emph{conclusion}.
+
+Lists of natural numbers are defined inductively as follows:
+\begin{enumerate}
+  \item $\NilList$ is a list.
+  \item If $x$ is a natural number and $l$ is a list, then $\ConsList{x}{l}$ is a list.
+\end{enumerate}
+Using the judgment $\boxed{\IsList{l}}$ as ``$l$ is a list'', we may express this definition using inference rules:
+\begin{mathpar}
+  \Infer[L:Nil]
+    {\strut}
+    {\IsList{\NilList}}
+
+  \Infer[L:Cons]
+    {
+      \IsNat{x} \\
+      \IsList{l}
+    }
+    {\IsList{\ConsList{x}{l}}}
+\end{mathpar}
+The annotations \textsc{L:Nil} and \textsc{L:Cons} are the names of the respective rules.
+%
+Such names are useful to refer to the rules in the text but are not part of the actual rule.
+
+\subsection{Sublists}
+
+Using the following inference rules, we may define the judgment $\boxed{\IsSublist{l_1}{l_2}}$, intended to mean that list~$l_1$ is an ordered sublist of list~$l_2$.
+\begin{mathpar}
+  \Infer[SL:Nil]
+    {\strut}
+    {\IsSublist{\NilList}{\NilList}}
+
+  \Infer[SL:Keep]
+    {\IsSublist{l_1}{l_2}}
+    {\IsSublist{\ConsList{x}{l_1}}{\ConsList{x}{l_2}}}
+
+  \Infer[SL:Drop]
+    {\IsSublist{l_1}{l_2}}
+    {\IsSublist{l_1}{\ConsList{x}{l_2}}}
+\end{mathpar}
+By composing these rules into a tree structure, we may provide a derivation of a particular fact, working from the bottom up and satisfying all premises.
+For example, we can prove that
+\[ \IsSublist{\ConsList{1}{\ConsList{2}{\NilList}}}{\ConsList{1}{\ConsList{5}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}} \]
+via the following derivation tree:
+\[
+  \Infer[SL:Keep]
+    {
+      \Infer[SL:Drop]
+        {
+          \Infer[SL:Drop]
+            {
+              \Infer[SL:Drop]
+                {
+                  \Infer[SL:Keep]
+                    {
+                      \Infer[SL:Nil]
+                        {\strut}
+                        {\IsSublist{\NilList}{\NilList}}
+                    }
+                    {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{2}{\NilList}}}
+                }
+                {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{1}{\ConsList{2}{\NilList}}}}
+            }
+            {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}
+        }
+        {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{5}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}}
+    }
+    {\IsSublist{\ConsList{1}{\ConsList{2}{\NilList}}}{\ConsList{1}{\ConsList{5}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}}}
+\]
+Notice that no judgments are left unjustified, as there are no premises for rule \textsc{SL:Nil}.
+We call such a rule an \emph{axiom} or a leaf rule.
+
+\begin{task}{10}
+  Give a \emph{different} derivation tree showing the same judgment.
+
+  You may wish to modify our given \LaTeX{} code, which can be found in \path{written/assn0.tex}.
+\end{task}
+\solution{sublist-derivation}
+
+To prove theorems about our judgments, we use a technique called \emph{rule induction}.
+Rule induction is a generalization of structural induction, allowing us to consider all derivation trees for a particular judgment.
+If we go by induction over the judgment defining a data structure, such as $\boxed{\IsList{l}}$, rule induction is in fact just structural induction.
+
+\begin{theorem}\label{thm:sublist-refl}
+  If $\IsList{l}$, then $\IsSublist{l}{l}$.
+\end{theorem}
+\begin{task}{10}
+  Prove \cref{thm:sublist-refl} by rule induction on $\IsList{l}$ (i.e., by structural induction on~$l$).
+  As a reminder, in each case, you should argue for the existence of a derivation showing $\IsSublist{l}{l}$.
+\end{task}
+\solution{sublist-refl}
+
+This theorem is fairly straightforward and involves a familiar proof technique, going by cases on how a list was construced.
+However, thanks to the generality of rule induction, we can go by cases on how \emph{any} judgment was derived.
+For example, we can go by induction on a derivation tree for a sublist judgment, considering all possible cases for how this derivation tree could have been constructed.
+We consider a worked example here:
+
+\begin{theorem}\label{thm:sublist-trans}
+  If $\IsSublist{l_1}{l_2}$ and $\IsSublist{l_2}{l_3}$, then $\IsSublist{l_1}{l_3}$.
+\end{theorem}
+We provide the following proof, annotated with footnotes.
+\begin{proof}
+  Assume $\IsSublist{l_1}{l_2}$ and $\IsSublist{l_2}{l_3}$.%
+  \footnote{The structure of a proof should follow the structure of the theorem. Since the theorem is of the form ``if $P$ then $Q$'', we should assume $P$ and show $Q$.}%
+  \footnote{By assuming $\IsSublist{l_1}{l_2}$ and $\IsSublist{l_2}{l_3}$, we are really assuming that we have derivation trees for both $\IsSublist{l_1}{l_2}$ and $\IsSublist{l_2}{l_3}$.}
+  We prove by rule induction on $\IsSublist{l_2}{l_3}$, showing in each case that $\IsSublist{l_1}{l_3}$.%
+  \footnote{In general, if we have multiple assumptions, which one(s) we should induct on, and in what order we should induct on them, depends on the proof itself.}
+  The cases we have to consider correspond to all rules that could have been used at the root of the derivation tree
+  of the judgment $\IsSublist{l_2}{l_3}$.
+
+  \begin{description}
+    \item[Case]
+      $\Infer[SL:Nil]
+        {\strut}
+        {\IsSublist{\NilList}{\NilList}}$:
+
+      Here, we know $l_2 = \NilList$ and $l_3 = \NilList$.
+      It remains to show that $\IsSublist{l_1}{l_3}$; in other words, $\IsSublist{l_1}{\NilList}$.
+      By assumption, $\IsSublist{l_1}{l_2}$. Since we know $l_2 = \NilList$, we have $\IsSublist{l_1}{\NilList}$, which is precisely what we needed to show.
+
+    \item[Case]
+      $\Infer[SL:Keep]
+        {\IsSublist{l_2'}{l_3'}}
+        {\IsSublist{\ConsList{x}{l_2'}}{\ConsList{x}{l_3'}}}$:%
+      \footnote{Observe that we may rename variables in the rule as we wish.}
+
+      Here, we know $l_2 = \ConsList{x}{l_2'}$ and $l_3 = \ConsList{x}{l_3'}$.
+      Observe that by the premise, we know $\IsSublist{l_2'}{l_3'}$.
+      It remains to show that $\IsSublist{l_1}{l_3}$; in other words, $\IsSublist{l_1}{\ConsList{x}{l_3'}}$.
+      By assumption, $\IsSublist{l_1}{l_2}$, so $\IsSublist{l_1}{\ConsList{x}{l_2'}}$.%
+      \footnote{Notice that here, there is no immediate reasoning to do; it depends on how we know $\IsSublist{l_1}{\ConsList{x}{l_2'}}$. Therefore, we consider nested rule induction, breaking down our derivation of $\IsSublist{l_1}{\ConsList{x}{l_2'}}$.}
+      We go by rule induction on $\IsSublist{l_1}{\ConsList{x}{l_2'}}$.
+      \begin{description}
+        \item[Case]
+          $\Infer[SL:Nil]
+            {\strut}
+            {\IsSublist{\NilList}{\NilList}}$:
+
+          Here, we know $l_1 = \NilList$ and $\ConsList{x}{l_2'} = \NilList$.
+          However, $\ConsList{x}{l_2'}$ and $\NilList$ are different, so this case is \emph{vacuous}.%
+          \footnote{As a reminder, we say a case is vacuous when it is immediately contradictory for structural reasons. In this example, we clearly explained the vacuousness, but in your proofs, you may simply state that a particular case (or all other cases not considered) are vacuous, so long as it is true.}
+
+        \item[Case]
+          $\Infer[SL:Keep]
+            {\IsSublist{l_1'}{l_2'}}
+            {\IsSublist{\ConsList{x}{l_1'}}{\ConsList{x}{l_2'}}}$:%
+
+          Here, we know $l_1 = \ConsList{x}{l_1'}$ (and $l_2 = \ConsList{x}{l_2'}$, which we already knew).
+          Observe that by the premise, we must know $\IsSublist{l_1'}{l_2'}$.
+          Since we know $\IsSublist{l_1'}{l_2'}$ and $\IsSublist{l_2'}{l_3'}$ via sub-derivations, we may invoke the \emph{inductive hypothesis} to get that $\IsSublist{l_1'}{l_3'}$.
+          To show $\IsSublist{l_1}{l_3}$, i.e. $\IsSublist{\ConsList{x}{l_1'}}{\ConsList{x}{l_3'}}$, we may use the rule \textsc{SL:Keep}:
+          \[
+            \Infer[SL:Keep]
+              {\IsSublist{l_1'}{l_3'}}
+              {\IsSublist{\ConsList{x}{l_1'}}{\ConsList{x}{l_3'}}}
+          \]
+          The premise is justified by our previous reasoning.
+
+        \item[Case]
+          $\Infer[SL:Drop]
+            {\IsSublist{l_1}{l_2'}}
+            {\IsSublist{l_1}{\ConsList{x}{l_2'}}}$:
+
+          Observe that by the premise, we must know $\IsSublist{l_1}{l_2'}$.
+          Since we know that $\IsSublist{l_1}{l_2'}$ and $\IsSublist{l_2'}{l_3'}$ via sub-derivations, we may invoke the inductive hypothesis to get that $\IsSublist{l_1}{l_3'}$.
+          To show $\IsSublist{l_1}{l_3}$, i.e. $\IsSublist{l_1}{\ConsList{x}{l_3'}}$, we may use the rule \textsc{SL:Drop}:
+          \[
+            \Infer[SL:Drop]
+              {\IsSublist{l_1}{l_3'}}
+              {\IsSublist{l_1}{\ConsList{x}{l_3'}}}
+          \]
+          The premise is justified by our previous reasoning.
+      \end{description}
+
+      In all three sub-cases, we showed that $\IsSublist{l_1}{l_3}$, as desired, so this case holds.
+
+    \item[Case]
+      $\Infer[SL:Drop]
+        {\IsSublist{l_2}{l_3'}}
+        {\IsSublist{l_2}{\ConsList{x}{l_3'}}}$:
+
+      Here, we know $l_3 = \ConsList{x}{l_3'}$.
+      Observe that by the premise, we must know $\IsSublist{l_2}{l_3'}$.
+      It remains to show that $\IsSublist{l_1}{l_3}$; in other words, $\IsSublist{l_1}{\ConsList{x}{l_3'}}$.
+      Since we assumed $\IsSublist{l_1}{l_2}$ and we have a sub-derivation showing $\IsSublist{l_2}{l_3'}$, we may invoke the inductive hypothesis to get that $\IsSublist{l_1}{l_3'}$.
+      To show $\IsSublist{l_1}{\ConsList{x}{l_3'}}$, we may use the rule \textsc{SL:Drop}:
+      \[
+        \Infer[SL:Drop]
+          {\IsSublist{l_1}{l_3'}}
+          {\IsSublist{l_1}{\ConsList{x}{l_3'}}}
+      \]
+      The premise is justified by our previous reasoning.
+  \end{description}
+
+  In all three cases, we showed that $\IsSublist{l_1}{l_3}$, as desired.
+  Thus, the claim holds.
+\end{proof}
+
+In this proof, we were fairly verbose about justifying the reasoning.
+You need not be this verbose in the proofs you submit, although you should be just as careful in structuring your proofs.
+\\[\baselineskip]
+
+A close look at our proof of \cref{thm:sublist-refl} reveals that it is \emph{constructive}.
+%
+A constructive proof does not only show that an object exists but also how to construct it.
+%
+Almost all the proofs in this course are constructive.
+%
+In our case, the proof shows how to construct a derivation of the judgment $\IsSublist{l_1}{l_3}$
+from derivations of the judgments $\IsSublist{l_1}{l_2}$ and $\IsSublist{l_2}{l_3}$.
+%
+Consider for example the case of \textsc{SL:Drop} in the proof.
+%
+In this case, the root of the derivation tree of $\IsSublist{l_2}{l_3}$ looks as follows.
+$$
+\Infer[SL:Drop]
+        {\inferrule{\mathbf{T_1}}{\IsSublist{l_2}{l_3'}}}
+        {\IsSublist{l_2}{\ConsList{x}{l_3'}}}
+$$
+In particular, $l_3 = \ConsList{x}{l_3'}$ and we have a derivation tree ${\mathbf{T_1}}$ for $\IsSublist{l_2}{l_3'}$.
+%
+The proof then shows how to construct a derivation tree for $\IsSublist{l_1}{l_3}$.
+%
+First, per induction hypothesis, the proof recursively shows us how to
+construct a derivation tree ${\mathbf{T_2}}$ for $\IsSublist{l_1}{l'_3}$ (using ${\mathbf{T_1}}$ and the derivation tree
+for $\IsSublist{l_1}{l_2}$).
+%
+Then we can apply the rule \textsc{SL:Drop} to get a derivation tree for
+$\IsSublist{l_1}{l_3}$:
+$$
+\Infer[SL:Drop]
+        {\inferrule{\mathbf{T_2}}{\IsSublist{l_1}{l_3'}}}
+        {\IsSublist{l_1}{\ConsList{x}{l_3'}}}
+$$
+
+\begin{task}{10}
+  Consider the following derivation:
+  \[
+    \Infer[SL:Keep]
+      {
+        \Infer[SL:Drop]
+          {
+            \Infer[SL:Nil]
+              {\strut}
+              {\IsSublist{\NilList}{\NilList}}
+          }
+          {\IsSublist{\NilList}{\ConsList{2}{\NilList}}}
+      }
+      {\IsSublist{\ConsList{1}{\NilList}}{\ConsList{1}{\ConsList{2}{\NilList}}}}
+  \]
+  Recall our earlier derivation tree, as well:
+  \[
+    \Infer[SL:Keep]
+      {
+        \Infer[SL:Drop]
+          {
+            \Infer[SL:Drop]
+              {
+                \Infer[SL:Drop]
+                  {
+                    \Infer[SL:Keep]
+                      {
+                        \Infer[SL:Nil]
+                          {\strut}
+                          {\IsSublist{\NilList}{\NilList}}
+                      }
+                      {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{2}{\NilList}}}
+                  }
+                  {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{1}{\ConsList{2}{\NilList}}}}
+              }
+              {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}
+          }
+          {\IsSublist{\ConsList{2}{\NilList}}{\ConsList{5}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}}
+      }
+      {\IsSublist{\ConsList{1}{\ConsList{2}{\NilList}}}{\ConsList{1}{\ConsList{5}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}}}
+  \]
+  We abbreviate:
+  \begin{align*}
+    l_1 &= \ConsList{1}{\NilList} \\
+    l_2 &= \ConsList{1}{\ConsList{2}{\NilList}} \\
+    l_3 &= \ConsList{1}{\ConsList{5}{\ConsList{3}{\ConsList{1}{\ConsList{2}{\NilList}}}}}
+  \end{align*}
+  Combined, these trees show that $\IsSublist{l_1}{l_2}$ and $\IsSublist{l_2}{l_3}$.
+  Using these two derivations, what derivation of $\IsSublist{l_1}{l_3}$ does our proof of \cref{thm:sublist-trans} find?
+  Briefly (via a few sentences) explain your reasoning.
+\end{task}
+\begin{hint}
+  There are two different ways to derive $\IsSublist{l_1}{l_3}$; be careful to use the derivation of $\IsSublist{l_2}{l_3}$ above, rather than the one you constructed in a previous task.
+\end{hint}
+\solution{sublist-trans-construct}
+
+\subsection{List Containment}
+
+Now, consider another judgment, $\boxed{\IsContainedIn{x}{l}}$, expressing that $x$ is an element of list $l$:
+\begin{mathpar}
+  \Infer[In:Here]
+    {\strut}
+    {\IsContainedIn{x}{\ConsList{x}{l}}}
+
+  \Infer[In:There]
+    {\IsContainedIn{x}{l}}
+    {\IsContainedIn{x}{\ConsList{y}{l}}}
+\end{mathpar}
+
+The following theorem relates the sublist judgment to the containment judgment:
+
+\begin{theorem}\label{thm:sublist-in}
+  If $\IsSublist{l_1}{l_2}$ and $\IsContainedIn{x}{l_1}$, then $\IsContainedIn{x}{l_2}$.
+\end{theorem}
+\begin{task}{25}
+  Prove \cref{thm:sublist-in} by rule induction.
+\end{task}
+
+\begin{hint}
+  Go by rule induction on $\IsSublist{l_1}{l_2}$.
+  Some cases may be vacuous.
+  In some cases, you will need to use an inner rule induction on $\IsContainedIn{x}{l_1}$.
+\end{hint}
+\solution{sublist-in}
+
+
+\section{Binding and Scope}
+
+\subsection{Free Variables}
+
+Recall the definition of the judgment $\IsFree{x}{M}$ from the $\lambda$-calculus supplement.
+We could define $\IsntFree{x}{M}$ if not $\IsFree{x}{M}$.
+However, we can also define the judgment $\IsntFree{x}{M}$ inductively without using $\IsFree{x}{M}$.
+
+\begin{task}{20}
+  Recall the definition of the judgment $\IsFree{x}{M}$ from the \Supplement.
+  \begin{enumerate}
+  \item
+    Give an inductive definition of the judgment $\IsntFree{x}{M}$ by exhibiting a selection of rules, stating positively that $x$ is not-free in $M$. \\
+    \textbf{Be careful!} \\
+    Do \emph{not} define the judgment $\IsntFree{x}{M}$ to be the logical negation of $\IsFree{x}{M}$, as they are two separately defined judgments. As a matter of fact, you're \underline{\textbf{not allowed}} to refer to the judgment $\IsFree{x}{M}$ in your rules. This idea of logical complementation accurately specifies the behavior of the judgment, but doesn't inform its implementation.
+
+    As such, restated in terms of this semantic specification, define a judgment $\IsntFree{x}{M}$ such that:
+    \begin{enumerate}
+    \item For all $x$, $M$, $\IsntFree{x}{M}$ is derivable if $\IsFree{x}{M}$ is not derivable
+    \item For all $x$, $M$, $\IsntFree{x}{M}$ is not derivable if $\IsFree{x}{M}$ is derivable
+    \end{enumerate}
+      \solution{not_in}
+    \item
+      Prove that if $\isvar{x}$ and $\istm{M}$ either $\IsFree{x}{M}$ or $\IsntFree{x}{M}$.
+      In other words, prove that \textbf{at least} one of these two statements is true.
+      You are not required to prove that \textbf{exactly} one of them is true, although your definition of the judgment $\IsntFree{x}{M}$ should satisfy that.
+      Proceed by rule induction on $\istm{M}$, making use of the fact that if $\isvar{x}$ and $\isvar{y}$, then either $x = y$ or $x \ne y$.
+      \solution{in_or_not_in}
+  \end{enumerate}
+\end{task}
+
+\subsection{Substitution}
+
+Recall the definition of $\SubstIs{M}{x}{N}{P}$ from the \Supplement.
+Unfortunately, $\SubstIs{M}{x}{N}{P}$ is undefined for certain terms $M$ and $N$, where the substitution could capture variables.
+To avoid this issue, we have introduced $\alpha$-equivalence to make substitution a total operation that is defined for all terms.
+
+\begin{theorem}\label{thm:subst-aequiv}
+  For all $\istm{M}$, $\isvar{x}$, and $\istm{N}$,
+  there exists $\istm{N'}$ and $\istm{P'}$ such that
+  $\isalpha{N'}{N}$ and
+  $\SubstIs{M}{x}{N'}{P'}$.%
+  \footnote{Moreover, it is the case that if $\isalpha{N''}{N'}$ and $\SubstIs{M}{x}{N''}{P''}$, then $\isalpha{P''}{P'}$.}
+\end{theorem}
+
+\begin{task}{10}
+  Give some $M$, $N$, $N'$, and $P'$ such that:
+  \begin{enumerate}
+    \item there does not exist a $P$ such that $\SubstIs{M}{x}{N}{P}$
+    \item $\isalpha{N'}{N}$
+    \item $\SubstIs{M}{x}{N'}{P'}$
+  \end{enumerate}
+  Briefly explain why these properties hold for your solution.
+\end{task}
+\solution{subst-nontotal}
+
+
+\section[Implementing the Lambda Calculus]{Implementing the $\lambda$-Calculus}\label{sec:abt}
+
+We have observed that it is convenient to work up to $\alpha$-equivalence, ignoring the names of bound variables.
+In this section, we will build a tool in Standard ML for representing $\alpha$-equivalence classes of $\lambda$-terms.%
+\footnote{If you are ambitious and have the time, it is a very good exercise to try to implement abstract binding trees yourself, without the benefit of any theoretical understanding or the techniques suggested here, and watch yourself suffer and fail miserably.}
+
+The tool you will build can be generalized to support arbitrary \emph{abstract binding trees} (ABTs) as defined in \PFPL[1].
+By implementing a language as simple as the untyped $\lambda$-calculus (abbreviated as ULC in the code), you will grapple with fundamental ideas; then, on the rest of the assignments, we will provide you with analogous ABT structures for more complex languages.
+
+\subsection{Variables}\label{sec:abt-var}
+
+A variable in a $\lambda$-term is a placeholder for a $\lambda$-term, which can be plugged in for the variable using substitution.
+To work with variables, we introduce the \code{TEMP} signature, partially reproduced below.
+Here, ``temp'' stands for ``temporary'', since the exact identity of a variable is only kept until the variable is bound, as we will see in the next section.
+
+\codefile[linerange={1-10,13-15,24}]{var/temp.sig}
+
+Values of type \code{t} represent variables.
+A key idea is the notion of a \emph{new} or \emph{fresh variable} -- one that has not been seen before in some given context.
+There are several ways to guarantee freshness relative to a context, but one simple way is to just ignore the context and make sure every freshly generated variable is globally unique.
+This is achieved by using global state behind the scenes.
+As regards your ABT implementation, this shows up in the above signature as \code{val new : string -> t}, where the \code{string} value being passed in is entirely up to you (the user), as it's primarily there for human readability.
+
+For example, if \code{Var : TEMP}, then \code{Var.toString (Var.new "x")} might give \code{"x1"}, whereas running it again would give \code{"x2"} and running with \code{"y"} would give \code{"y3"}.
+
+You will only need to work with an abstract structure ascribing to the signature.
+
+\subsection[Alpha-Equivalence Classes of Lambda-Terms]{$\alpha$-Equivalence Classes of $\lambda$-Terms}
+
+Now, we introduce the signature for $\lambda$-terms.
+This is a version of an interface that has been developed here at CMU over numerous compiler development efforts, designed to help users avoid common errors.
+
+\codefile{lang-ulc/ulc.abt.sig}
+
+First, observe that \code{ULC} contains a single sub-structure, \code{Term}.
+In languages with more than one sort (e.g., a sort for expressions and a sort for types), we will have one sub-structure per sort.
+
+\subsubsection{Variables}
+
+In the \code{Term} structure, we have \code{structure Var : TEMP}; this will provide us with all the necessary operations on variables.
+We also have \code{type termVar}, synonymous with \code{Var.t}.
+
+\subsubsection{Terms and Views}
+
+Next, we introduce \code{type term} and \code{type t}, which are synonymous.%
+\footnote{In SML, it is common practice to define \code{type foo} and \code{type t = foo} in \code{structure Foo}, so the signature can use \code{foo} while clients of the structure may use \code{Foo.t}.}
+Values of type \code{Term.t} will be ($\alpha$-equivalence classes of) $\lambda$-terms.
+Importantly, \code{type t} is \emph{abstract}: its representation will be internal to the structure.
+
+Access to the representation type \code{t} is mediated by a \emph{view}, which is a \emph{non-recursive} datatype \code{view} with a pair of functions \code{into} and \code{out}.
+The idea behind a view is that it is a type whose values represent a one-step unfolding of a value of the abstract type \code{t}.
+The function \code{out} does this one-step unfolding of a $\lambda$-term to create a view, and \code{into} puts a view back together into a $\lambda$-term.
+
+The function \code{out} has type \code{term -> view}, taking a genuine $\lambda$-term and makes it visible to the user.
+Let \code{m : term}; we describe the behavior of \code{out m} as follows:
+\begin{enumerate}
+  \item
+    Suppose \code{m} represents $x$, where $x$ is a variable.
+    Then, \code{out m} would return \code{Var x}, where the value
+    \code{x : Variable.t} represents the variable $x$.
+
+  \item
+    Suppose \code{m} represents the lambda abstraction $\ulamabt{x}{M'}$.
+    Then, \code{out m} would return \code{Lam (y, m')}, where \code{y} represents a fresh variable $y$ and \code{m'} represents the $\lambda$-term $\Subst{y}{x}{M}$, which is well-defined because $y$ is (globally) fresh.
+
+    In other words, the \code{out} operation renames the variable bound by
+    an abstractor when unpacking it!
+    This is one of the essential features of this interface, and implementing this correctly will save you many hours of tracking down bugs involving binding and scope.
+
+  \item
+    Suppose \code{m} represents $\uappabt{M_1}{M_2}$.
+    Then, \code{out m} should return \code{Ap (m1, m2)}, where \code{m1} represents the $\lambda$-term $M_1$ and \code{m2} represents the $\lambda$-term $M_2$.
+    Observe that \code{m1} and \code{m2} are of type \code{term}, \emph{not} of type \code{view}.
+    This is what we mean by ``one-step unfolding''.
+\end{enumerate}
+
+The function \code{into} has type \code{view -> term}, folding a one-step unfolding (that is, a view) back into a $\lambda$-term.
+
+\begin{enumerate}
+  \item
+    Suppose \code{x : Variable.t} represents the variable $x$.
+    Then, \code{into (Var x)} will return an internal form representing the variable term $x$.
+
+  \item
+    Suppose \code{x : Variable.t} represents the variable $x$ and \code{m : term} represents the $\lambda$-term $M$.
+    Then, \code{into (Lam (x, m))} will return an internal form representing the $\lambda$-term $\ulamabt{x}{M}$.
+
+  \item
+    Suppose \code{m1 : term} represents the $\lambda$-term $M_1$ and \code{m2} represents the $\lambda$-term $M_2$.
+    Then, \code{into (Ap (m1, m2))} will return an internal form representing the $\lambda$-term $\uappabt{M_1}{M_2}$.
+\end{enumerate}
+
+For convenience, we provide functions which simply compose constructors with \code{into}:
+\begin{codeblock}
+  val Var' = into o Var
+  val Lam' = into o Lam
+  val Ap' = into o Ap
+\end{codeblock}
+
+\begin{task}{5}
+  Suppose \code{v} is a value of type \code{view}.
+  Will \code{out (into v)} be \emph{equal to} \code{v}?
+  (Here, equality does \emph{not} mean $\alpha$-equivalence.)
+  If so, explain why; if not, give a simple counterexample.
+  Think carefully about what effect the renaming \code{out} can perform before answering this question.
+\end{task}
+\solution{into-out.tex}
+
+\subsubsection{Auxiliary Functions}
+
+We can test $\alpha$-equivalence with the \code{aequiv} function, which returns \code{true} if its two arguments are $\alpha$-equivalent, and
+\code{false} otherwise.
+
+Additionally, we can use the \code{subst} function to substitute $\lambda$-terms in for free variables.
+Suppose \code{m1} represents $M_1$, \code{x} represents $x$, and \code{m} represents $M$.
+Then, \code{subst m1 x m} will return $\Subst{M_1}{x}{M}$, which by \cref{thm:subst-aequiv} must be defined since \code{m} represents an $\alpha$-equivalence class of terms.
+
+Finally, we have a convenience function \code{toString : term -> string} for producing a string representation of a term.
+Note that \code{toString} uses \code{out}, so the variables in the string representation will be different on each call of \code{toString}.
+
+\subsection{Implementing ABTs}
+
+One of the inconveniences of a naive representation of $\lambda$-terms is that $\alpha$-equivalent terms can have multiple representations, so implementing \code{aequiv} and other helper functions becomes tricky.
+We will look at a more sophisticated representation, called \emph{locally nameless form} or \emph{de Bruijn indexed} form, which avoids this problem, so that each $\alpha$-equivalence class is represented with a single data value, and thus $\alpha$-equivalence can be tested for with a simple structural traversal.
+
+The main idea is to observe that variables in a $\lambda$-term serve two roles.
+\begin{enumerate}
+  \item
+    First, they can appear free --- that is, they can be a \emph{name} for a yet-to-be-determined term.
+  \item
+    Second, they can appear bound, in which case the variable occurrences simply \emph{refer back} to the location of the $\lambda$ abstraction.
+\end{enumerate}
+
+For example, consider the following $\lambda$-term:
+\[ \ulamabt{x}{\ulamabt{y}{\uappabt{x}{\uappabt{y}{z}}}} \]
+The use of $x$ refers back to the variable from the outer $\lambda$ abstraction; similarly, the use of $y$ refers back to the variable from the inner $\lambda$-abstraction.
+However, $z$ is a free variable.
+The only reason we need the names of the bound variables $x$ and $y$ is to distinguish one abstraction site from another; the names themselves are
+irrelevant from a semantic point-of-view.
+(This is just another way of saying that we want to identify terms up to $\alpha$-equivalence, of course.)
+
+In a locally nameless representation, we distinguish these two roles in our data structure, in order to make $\alpha$-equivalence implementable as structural equality on terms.
+The trick in this representation is to exploit a structural invariant of $\lambda$-terms: in any $\lambda$ abstraction $\ulamabt{x}{M}$, the only occurrences of $x$ are within $M$, up to $\alpha$-equivalence.
+
+As a result of this fact, we have a unique path ``upward'' from each bound variable to the abstractor that bound it.
+We can represent this path as a number that tells us how many binders we have to hop over before we reach the one we're interested in.
+Thus, we define \code{type term} as follows:
+\begin{codeblock}
+  datatype term
+    = BV of int
+    | FV of Variable.t
+    | LAM of term
+    | AP of term * term
+\end{codeblock}
+Here, \code{BV} stands for ``bound variable'' and stores the (non-negative) number of binders between the variable and the binding site, and \code{FV} stands for ``free variable'' and stores a genuine variable.
+Notice the difference between \code{datatype term} (recursive) and \code{datatype view} (non-recursive).
+
+Consider the following diagram of $\ulamcst{x}{\uappcst{x}{\ulamcst{y}{\uappcst{\uappcst{\cdparens{\ulamcst{z}{x}}}{y}}{\uappcst{z}{\ulamcst{w}{y}}}}}}$.
+
+\tikzset{
+  var/.style = {font=\ttfamily\normalsize},
+  lam/.style = {shape=rectangle, rounded corners,
+                draw, align=center, font=\itshape\normalsize},
+  app/.style = {font=\ttfamily\normalsize},
+}
+
+\begin{center}
+\begin{tikzpicture}
+  [
+    grow                    = down,
+    sibling distance        = 6em,
+    level distance          = 3em,
+    edge from parent/.style = {draw, -latex},
+  ]
+  \tikzstyle{level 3}=[sibling distance=12em]
+  \tikzstyle{level 5}=[sibling distance=6em]
+  \node [lam] {$\lambda x.$}
+    child { node [app] {$\kw{ap}$}
+      child { node [var] {$x := \code{BV 0}$} }
+      child { node [lam] {$\lambda y.$}
+        child { node [app] {$\kw{ap}$}
+          child { node [app] {$\kw{ap}$}
+            child { node [lam] {$\lambda z.$}
+              child { node [var] {$x := \code{BV 2}$}}
+            }
+            child { node [var] {$y := \code{BV 0}$}}
+          }
+          child { node [app] {$\kw{ap}$}
+            child { node [var] {$z := \code{FV z}$}}
+            child { node [lam] {$\lambda w.$}
+              child { node [var] {$y := \code{BV 1}$}}
+            }
+          }
+        }
+      }
+    };
+\end{tikzpicture}
+\end{center}
+
+We've put a box around every $\lambda$ abstraction and labeled each bound variable with its bound variable number.
+We can calculate the bound variable number by looking at each path from an abstraction to its use sites and count the number of abstractions crossed along the way:
+\begin{center}
+  \newcommand{\boxabs}[1]{\mbox{\fbox{$\lambda{#1}.$}}}
+  \begin{tabular}{l|c}
+  Path & Variable \# \\ \hline
+
+  $\boxabs{x} \to \kw{ap} \to x$ & 0 \\
+  $\boxabs{x} \to \kw{ap} \to \boxabs{y} \to \kw{ap} \to \kw{ap} \to \boxabs{z} \to x$ & 2 \\
+  $\boxabs{y} \to \kw{ap} \to \kw{ap} \to y$ & 0 \\
+  $\boxabs{y} \to \kw{ap} \to \kw{ap} \to \boxabs{w} \to y$ & 1 \\
+  \end{tabular}
+\end{center}
+
+An important fact to notice about these paths is that even for the same binder, each occurrence of its bound variable can have a \emph{different} bound variable number, depending on the number of abstractions we crossed over to reach that variable occurrence.
+
+\begin{task}{40}
+  Implement the rest of \code{structure ULC} in \path{lang-ulc/ulc.abt.sml} using a locally nameless representation.
+  Specifically, you should implement \code{into}, \code{out}, \code{aequiv}, and \code{subst} according to the specifications above.
+\end{task}
+\begin{hint}
+  When implementing this structure, you will find it helpful to define two recursive helper functions \code{bind} (for \code{into}) and \code{unbind} (for \code{out}).
+  \begin{itemize}
+    \item
+      \code{bind} should take a variable \code{x : Variable.t}, some \code{i : int}, and a term \code{m : term}, returning an updated version of \code{m} with all (free) occurrences of \code{x} bound, assuming the abstraction site is \code{i} layers away.
+
+    \item
+      \code{unbind} should take a variable \code{x : Variable.t}, some \code{i : int}, and a term \code{m : term}, returning an updated version of \code{m} with bound variable \code{i} layers away replaced with free variable \code{x}.
+  \end{itemize}
+\end{hint}
+\begin{hint}
+  Note that one of the invariants of the locally nameless representation is that the case \code{BV n} only occurs once you've gone beneath a binder.
+  So, it can't happen at the top level of a term.
+\end{hint}
+\begin{hint}
+  Your implementations of \code{aequiv} and \code{subst} should be fairly simple, since they need not worry about variable capture due to the locally nameless representation.
+\end{hint}
+
+\subsubsection*{Testing}
+To test your code, you can load \path{lang-ulc/sources.cm}:
+\begin{codeblock}
+  smlnj -m lang-ulc/sources.cm
+  - structure Term = ULC.Term;
+  - val x = Term.Var.new "x";
+  val x = - : Term.Var.t
+  - val i = Term.Lam' (x, Term.Var' x);
+  val i = - : ?.ULC.term
+  - Term.toString i;
+  val it = "(Lam (x2, x2))" : string
+  - Term.toString i;
+  val it = "(Lam (x3, x3))" : string
+  - Term.aequiv (i, i);
+  val it = true : bool
+  - Term.aequiv (i, Term.Lam' (x, Term.Var' (Term.Var.new "x")));
+  val it = false : bool
+  - val y = Term.Var.new "y";
+  val y = - : Term.Var.t
+  - Term.toString (Term.subst (Term.Lam' (x, Term.Var' y)) x (Term.Ap' (Term.Var' x, Term.Var' x)));
+  val it = "(Ap ((Lam (x6, y5)), (Lam (x7, y5))))" : string
+\end{codeblock}
+
+
+\section[Beta-Equivalence: Calculation in Lambda-Calculus]{$\beta$-Equivalence: Calculation in the $\lambda$-Calculus}
+
+In the $\lambda$-calculus, $\beta$-equivalence tells us how to \emph{compute}!
+In this section, you will code in the $\lambda$-calculus and implement a simple interpreter based on $\beta$-equivalence.
+Note that you may attempt the following subsections in either order, depending on your preference.
+
+\subsection{Church Encodings}
+
+At first glance, it would seem that the $\lambda$-calculus is too simple to be useful.
+While it has (higher-order) functions, what about data structures like booleans?
+Surprisingly, booleans (and all other data structures!) need not be included as primitives, since as we saw in lecture, they can be defined inside the $\lambda$-calculus.
+
+\subsubsection{Booleans}
+
+Consider the following encoding of booleans:
+\begin{align*}
+  \trexabt              &\isdef \ulamcst{t}{\ulamcst{f}{t}} \\
+  \faexabt              &\isdef \ulamcst{t}{\ulamcst{f}{f}} \\
+  \ifexabt{M}{M_1}{M_0} &\isdef \uappcst{\uappcst{M}{M_1}}{M_0}
+\end{align*}
+Here, $\ifexabt{M}{M_1}{M_0}$ is the ABT form of the concrete syntax $\ifexcst{M}{M_1}{M_0}$.
+Observe that the booleans themselves are ``active'' data: given a ``then'' branch $M_1$ and an ``else'' branch $M_0$, the boolean itself is an algorithm that picks between them.
+
+How do we argue this encoding is correct?
+Our specification of booleans should require that:
+\begin{align*}
+  \ifexabt{\trexabt}{M_1}{M_0} &\betaequiv M_1 \\
+  \ifexabt{\faexabt}{M_1}{M_0} &\betaequiv M_0
+\end{align*}
+We can validate these laws using the axioms of $\betaequiv$, stated in the \Supplement; we give the following derivations as a chain of $\beta$-equivalences, since $\betaequiv$ is postulated to be reflexive and transitive.
+\begin{align*}
+  \ifexabt{\trexabt}{M_1}{M_0}
+    &\isdef \uappcst{\uappcst{\trexabt}{M_1}}{M_0} \\
+    &\isdef \uappcst{\uappcst{\cdparens{\ulamcst{t}{\ulamcst{f}{t}}}}{M_1}}{M_0} \\
+    &\betaequiv \uappcst{\cdparens{\ulamcst{f}{M_1}}}{M_0} \\
+    &\betaequiv M_1 \\
+  \ifexabt{\faexabt}{M_1}{M_0}
+    &\isdef \uappcst{\uappcst{\faexabt}{M_1}}{M_0} \\
+    &\isdef \uappcst{\uappcst{\cdparens{\ulamcst{t}{\ulamcst{f}{f}}}}{M_1}}{M_0} \\
+    &\betaequiv \uappcst{\cdparens{\ulamcst{f}{f}}}{M_0} \\
+    &\betaequiv M_0
+\end{align*}
+
+\subsubsection{Pairs}
+
+We can also define pairs in the $\lambda$-calculus:
+\begin{align*}
+  \pairexcst{M_1}{M_2} &\isdef \ulamcst{k}{\uappcst{\uappcst{k}{M_1}}{M_2}} \\
+  \fstexcst{M}         &\isdef \uappcst{M}{\ulamcst{x_1}{\ulamcst{x_2}{x_1}}} \\
+  \sndexcst{M}         &\isdef \uappcst{M}{\ulamcst{x_1}{\ulamcst{x_2}{x_2}}}
+\end{align*}
+Here, $\fstexcst{M}$/$\sndexcst{M}$ mean ``get the left/right component of pair $M$''.
+
+To validate this encoding, we specify that the following equivalences should hold:
+\begin{align*}
+  \fstexcst{\pairexcst{M_1}{M_2}} &\betaequiv M_1 \\
+  \sndexcst{\pairexcst{M_1}{M_2}} &\betaequiv M_2
+\end{align*}
+
+\begin{task}{10}
+  Validate the encoding of pairs by giving a derivation of the given equivalences via chains of $\beta$-equivalences. Please make sure to justify each $\beta$-equivalence step by citing the corresponding rule (as presented in the $\lambda$-calculus supplement).
+\end{task}
+\solution{encoding-pairs}
+
+\subsubsection{Options}
+
+Now, it's your turn!
+
+\begin{task}{15}
+  In \path{tests/option.lc}, define the following operations:
+  \begin{align*}
+    \kw{none}                    &\isdef \dots \\
+    \OpABT{\kw{some}}{M}         &\isdef \dots \\
+    \OpABT{\kw{case}}{M;M_0;M_1} &\isdef \dots
+  \end{align*}
+  Here, $\OpABT{\kw{case}}{M;M_0;M_1}$ is like the SML code \code{case M of NONE => M0 | SOME x => M1 x}.
+  These operations should satisfy the following laws, although you need not prove it:
+  \begin{align*}
+    \OpABT{\kw{case}}{\kw{none}           ;M_0;M_1} &\betaequiv M_0 \\
+    \OpABT{\kw{case}}{\OpABT{\kw{some}}{M};M_0;M_1} &\betaequiv \uappcst{M_1}{M} \\
+  \end{align*}
+\end{task}
+\begin{hint}
+  Options are very similar to booleans, except one of the forms contains data $M$.
+\end{hint}
+You can find the encodings of booleans and pairs in \path{tests/bool.lc} and \path{tests/pair.lc} for reference.
+Feel free to write a \colorbox{background_color}{$\lambda$} or a \code{\\} for a $\lambda$-abstraction; as described in \cref{sec:norm}, they are interchangeable.
+For information on testing your solution, consult \cref{sec:norm}.
+
+\subsection{Infinite Jest}
+
+A $\lambda$-term $N$ is called a \emph{$\beta$-normal form} if there is no $N'$ such that ${\isred{N}{N'}}$; we write this as $\isntred{N}$.
+Somewhat surprisingly, not all $\lambda$-terms have normal forms.
+
+\begin{task}{10}
+  Show that there is a $\lambda$-term $M$ \emph{without} a normal form.
+  Concretely, give some $M$ such that there is no $N$ such that $\isred{M}{N}$ and $\isntred{N}$.
+  Define this term $M$ as \code{nonormal} in \path{tests/no-normal.lc} and briefly explain in a comment why it doesn't have a normal form.
+\end{task}
+\begin{hint}
+  Consider a situation in which a chosen $\lambda$-term is \emph{applied to itself} in such a way that the self-application reduces to itself, and can thus be so-reduced forever.
+\end{hint}
+
+\subsection[Beta-Normalization]{$\beta$-Normalization}\label{sec:norm}
+
+In this section, you will implement an algorithm for $\beta$-normalizing $\lambda$-terms, using the infrastructure you developed in \cref{sec:abt}.
+
+\begin{task}{30}
+  Implement normalization for the $\lambda$-calculus, as defined in the \Supplement, in the file \path{lang-ulc/normalize-ulc.fun}.
+  In particular, if \code{m : ULC.Term.t} represents $M$, evaluating \code{norm m} should attempt to find some \code{n} representing $N$ such that ${M\ \textsf{norm}\ N}$.
+\end{task}
+\begin{hint}
+  You will almost certainly want to implement a helper function \code{whnf} to perform head normalization.
+\end{hint}
+
+\subsubsection*{Running Your Code}
+
+To test your normalizer, you can use our custom $\lambda$-calculus REPL, which supports several commands useful for interacting with the $\lambda$-calculus:
+\begin{codeblock}
+  smlnj -m top/top.cm
+  - TopLevel.repl ();
+  ->def i = λx.x;
+  ->def s = λx.λy.λz.x z (y z);
+  ->print norm s i i;
+  λz. z z
+  ->assert! i i = i;
+\end{codeblock}
+See the \path{tests/tests.lc} file for more details and examples.
+To return to the SML REPL from the $\lambda$-calculus REPL, hit Ctrl-C.
+
+You can evaluate a file using \code{TopLevel.evalFile "<filename>.lc";}.
+
+\paragraph{Using the Heap Image}
+If you have not yet finished your implementation of \code{structure ULC} from \cref{sec:abt}, you may use the distributed heap image as described in \cref{sec:heapimage} to test with a reference implementation of \code{structure ULC}.
+\begin{codeblock}
+  smlnj @SMLload refsol
+  - use "lang-ulc/normalize-ulc.fun";
+  - use "top/top.sml";
+\end{codeblock}
+Note that you \emph{must} reload the \path{top/top.sml} file every time you refresh the normalizer.
+
+\paragraph{Unicode}
+Note that by default, the REPL will pretty-print a Unicode \colorbox{background_color}{$\lambda$} symbol, and entering \colorbox{background_color}{$\lambda$} symbols into the REPL should also be supported alongside the \code{\\} character.
+If your terminal emulator is not sufficiently advanced to display the symbol, you may switch to ASCII-only mode by replacing \code{smlnj} with \code{smlnj -Dascii=1}.
+You may also use the \path{tests/*_ascii.lc} files if your text editor has issues with the symbol.
+
+
+\appendix
+
+\section{Submitting Your Solutions}\label{sec:submitting}
+
+\subsection{Written Solutions}
+
+First, write your solutions and build your written solution PDF.
+We require that you use the provided \LaTeX{} template in the \path{written/} directory to at least organize your solutions.
+However, if your handwriting is neat and clear, you are welcome to include images of handwritten work in the \LaTeX{} template.
+
+If you are not familiar with \LaTeX{}, there are lots of great introductory resources online; you may also find it useful to look at the \path{written/assn0.tex} file to understand how we typeset parts of the writeup.
+You are encouraged to ask for help on Piazza, as well!
+
+Here are some tips for using \LaTeX{}:
+\begin{itemize}
+  \item
+    You can upload the contents of the \path{written/} folder to a private \href{https://www.overleaf.com/}{Overleaf} project if you wish to write and build your solutions online.
+
+  \item
+    If you wish to develop locally, you may find it productive to use a \LaTeX{} editor, such as the TeX~Workshop extension for VS~Code.
+
+  \item
+    To build from the terminal, run \code[language=bash]{make hw00.pdf} in the \path{written/} directory to build your solutions.
+
+    If there were LaTeX issues with the \code[language=bash]{make} command, you are likely missing some \path{.sty} files.
+    \begin{itemize}
+      \item
+        If you are using your own Ubuntu computer, executing the following should be sufficient:
+
+        \code[language=bash]{sudo apt update && sudo apt install texlive-latex-extra texlive-science}
+      \item
+        If you wish to use the Andrew machines, these packages are on the available Ubuntu machines.
+
+        \code[language=bash]{ssh andrewid@ubuntu.andrew.cmu.edu}
+    \end{itemize}
+\end{itemize}
+
+Submit your PDF to Gradescope, matching the pages as indicated.
+
+\subsection{Code Solutions}
+
+Build a code submission zipfile by running \code[language=bash]{make}.
+Then, submit the produced \path{handin.zip} to Gradescope.
+
+Gradescope will be set up to run some test cases on your submission.
+However, a score will not be assigned until after the submission deadline, and the tests are not exhaustive, so passing many (or all) of the public tests \textbf{does not} necessarily guarantee a great score (and vice versa).
+
+For example, it is possible to pass 80\% of test cases and get a score less than, equal to, or greater than 80\%; all code is graded by hand.
+If the remaining 20\% of cases would pass if not for a simple error, your score may be higher than an 80\%.
+However, if you pass 80\% of the tests but violated given constraints, your score may be lower than an 80\%.
+
+You must instead check and test your code carefully!
+This policy will be maintained throughout the semester, and you will be referred back to it.
+
+\section{Directory Structure}
+
+In the assignment distribution, you will find the following files and directories:
+\begin{itemize}
+  \item
+    \path{Makefile}, containing scripts for submitting your solutions.
+
+  \item
+    \path{written/} contains the \LaTeX{} sources (in \path{assn0.tex}) and template (in \path{hw00.tex}) for this assignment.
+
+  \item
+    \path{cmlib/}\footnote{Available on GitHub at \url{https://github.com/standardml/cmlib}.}, a standard library for Standard ML that extends the SML/NJ built-in library.
+    Though you are unlikely to need it for this assignment, feel free to peruse its signatures (and structures) to see its capabilities.
+
+  \item
+    \path{pprint/} and \path{unicode/} contain utility libraries.
+
+  \item
+    \path{var/} contains primitives for variables, as described in \cref{sec:abt-var}.
+
+  \item
+    \path{lang-ulc/} contains a (partial, to be completed on this assignment) implementation of the untyped $\lambda$-calculus, including a parser, ABT, and normalizer.
+
+  \item
+    \path{top/} includes top-level utilities for the assignment, such as a REPL and a tool to evaluate a file.
+
+  \item
+    \path{tests/} contains tests.
+\end{itemize}
+
+\subsection{Reference Solution Heap Images}\label{sec:heapimage}
+
+With each assignment, we distribute ``heap images'' containing compiled reference solutions of all coding tasks.
+You can download the relevant heap images from Canvas depending on your operating system:
+\begin{itemize}
+  \item \path{refsol.x86-linux} is for x86 Linux machines, such as the Andrew servers.
+  \item \path{refsol.x86-darwin} is an equivalent image for macOS.
+\end{itemize}
+Make sure the heap image you download matches your SML/NJ version, as well.
+If you would like images for another platform or version, please let us know.
+
+Once you download your heap image, move it to the assignment root directory (i.e., at the same level as \path{Makefile}).
+You can use the heap image to get a better understanding of the intended behavior of the code; by running the following in the assignment root directory, you will be placed in an SML/NJ REPL session where the reference solution has been loaded.
+\begin{codeblock}
+  smlnj @SMLload refsol
+\end{codeblock}
+Via the \code{use} command, you may also bring in parts of your solution to test with other components of the reference solution.
+
+\end{document}

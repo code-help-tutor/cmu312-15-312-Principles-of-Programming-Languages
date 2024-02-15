@@ -1,0 +1,7 @@
+# Sum the numbers from 0 to n.
+def triangle(n):
+    return 0 if n <= 0 else n + triangle(n + -1)
+
+
+if __name__ == "__main__":
+    print(triangle(10))

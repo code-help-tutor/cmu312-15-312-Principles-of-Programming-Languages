@@ -1,0 +1,12 @@
+Library
+  library(abt.cm)
+  group(parser/parser.cm)
+
+  signature NORMALIZE_ULC
+  functor NormalizeULC
+is
+  abt.cm
+  parser/parser.cm
+
+  normalize-ulc.sig
+  normalize-ulc.fun

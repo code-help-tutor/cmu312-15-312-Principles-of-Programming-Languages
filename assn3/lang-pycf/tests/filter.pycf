@@ -1,0 +1,13 @@
+# Filter a list by a predicate.
+def filter(args):
+    p = args[0]
+    l = args[1]
+
+    def helper(i):
+        return [] if len(l) <= i else ([l[i]] if p(l[i]) else []) + helper(i + 1)
+
+    return helper(0)
+
+
+if __name__ == "__main__":
+    print(filter([lambda x: 3 <= x, [1, 5, 3, 1, 2]]))

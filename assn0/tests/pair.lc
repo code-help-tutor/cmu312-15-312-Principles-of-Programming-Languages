@@ -1,0 +1,10 @@
+def pair = λM1. λM2. λk. k M1 M2;
+def fst  = λM. M (λx1. λx2. x1);
+def snd  = λM. M (λx1. λx2. x2);
+
+# test cases
+print! fst (pair x1 x2);
+print! snd (pair x1 x2);
+
+def swap = λM. pair (snd M) (fst M);
+print! swap (pair x1 x2);

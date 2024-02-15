@@ -1,0 +1,65 @@
+test 1
+let
+   val tt = s z
+   val ff = <>
+
+   val geq =
+   fnfixfun (geq) (x) fn (y)
+      ifz y { z => tt
+            | s y2 =>
+              ifz x { z => ff
+                    | s x2 => geq x2 y2 }}
+
+   val append =
+   fnfixfun (append) (xs) fn (ys)
+      cond (nil? xs) ys < xs.l , append (xs.r) ys >
+
+   val partition =
+   fnfixfun (partition) (f) fn (xs)
+      cond (nil? xs) <<>, <>>
+        let val rest = partition f (xs.r)
+            val as = rest.l
+            val bs = rest.r
+        in cond (f (xs.l))
+             <<xs.l, as>, bs>
+             <as, <xs.l, bs>>
+        end
+
+   val quicksort =
+   fnfixfun (quicksort) (xs)
+      cond (nil? xs) <>
+        (cond (nil? (xs.r)) <xs.l, <>>
+           let
+             val part = partition (geq (xs.l)) (xs.r)
+             val small = quicksort (part.l)
+             val big = quicksort (part.r)
+           in
+             append small <xs.l, big>
+           end)
+
+   val numEq =
+   fnfixfun (numEq) (m) fn (n)
+      ifz m { z => ifz n { z => s z | s y => <> }
+            | s x => ifz n { z => <> | s y => numEq x y}
+            }
+
+   val eq =
+   fnfixfun (eq) (a) fn (b)
+      (cond (nil? a)
+         (nil? b)
+         (cond (cons? a)
+            (cond (cons? b)
+               (cond (eq (a.l) (b.l))
+                  (eq (a.r) (b.r))
+                  (<>))
+               (<>))
+            (cond (num? a)
+               (cond (num? b)
+                  (numEq a b)
+                  (<>))
+               (<>))))
+
+   val res = eq (quicksort <42, <1, <>>>) <1, <42, <>>>
+in
+   res
+end

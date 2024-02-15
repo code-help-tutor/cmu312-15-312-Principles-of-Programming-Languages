@@ -1,0 +1,10 @@
+def sum(l):
+    def sum_helper(i):
+        return 0 if len(l) <= i else l[i] + sum_helper(i + 1)
+
+    return sum_helper(0)
+
+
+# Errors, since it attempts to use `+` on `sum`/`True`.
+if __name__ == "__main__":
+    print(sum([1, 5, sum, 3, True, 1, 2]))

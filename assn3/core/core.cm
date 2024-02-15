@@ -1,0 +1,14 @@
+Library
+  group(common/common.cm)
+
+  group(statics/statics.cm)
+  group(dynamics/dynamics.cm)
+
+  group(interpreter/interpreter.cm)
+is
+  common/common.cm
+
+  statics/statics.cm
+  dynamics/dynamics.cm
+
+  interpreter/interpreter.cm

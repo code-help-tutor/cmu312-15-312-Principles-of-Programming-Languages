@@ -1,0 +1,170 @@
+/*
+  This is a comment.
+  For technical reasons, please do not write semicolons in comments.
+*/
+
+/*
+  Load another file into the interpreter at this point.
+*/
+
+/*
+  Strings use single quotes.
+  You can't do anything with them other then using them in a print command.
+
+  The top level supports binding to global variables, but only for pure expressions.
+*/
+val x = 'hello\n';
+print x;
+print 0;
+print '\n';
+
+/*
+  This is the general form of binding.
+
+  bind (e,x.m) => val x = e in m
+  where e is an encapsulated command,
+  and m is a command.
+
+  This command returns the number 1.
+*/
+val x = cmd(ret(1)) in
+ret(x);
+
+/*
+  Type aliases are supported, as are sums and products.
+*/
+type t = nat + (chan[nat] * chan[nat]);
+
+/*
+  Injection, casing, tuples, and split are supported.
+
+  At the top level, only declarations and commands may be executed,
+  so we wrap the returned tuple value here inside a ret block.
+*/
+ret(
+  split (case (inl[t](1)) of {
+    l => (l, 0)
+  | r => (0, 0)
+  }) is x, y in (y, x)
+);
+
+/*
+  So are recursive functions, and the nullary case.
+*/
+fun elim (x : void) : nat =
+  abort[nat](x)
+;
+
+/*
+  Booleans and integers are built in.
+*/
+fun and (x : bool) (y : bool) : bool = if x then y else false;
+
+fun and (x : bool) (y : bool) : bool = x && y && (x || y) && (!!x);
+
+fun plus (x : nat) (y : nat) : nat =
+  ifz y then x else y => succ (plus x y)
+;
+
+fun plus (x : nat) (y : nat) : nat =
+  x + y - y + (y / y) * (y / y) - 1 % 1
+;
+
+/*
+  There are also let-in-end environments with the same bindings.
+*/
+ret(
+  let
+    val x = cmd(ret(1))
+  in
+    x
+  end
+);
+
+/*
+  Recursive types are supported.
+*/
+type list = rec (t. unit + nat * t);
+
+ret(
+  unfold(fold[list](inl[unit + nat * list](())))
+);
+
+/*
+  newchan[tau](a.m) => newchan a ~ tau in m
+*/
+newchan a ~ nat in (ret (1));
+
+
+/*
+  The syntax of events and commands are as follows:
+*/
+newchan b ~ nat in (emit[b](1));
+newchan c ~ nat in (sync[c]);
+newchan d ~ nat in (emit(chan[d],1));
+newchan e ~ nat in (sync[e]);
+
+/* You can spawn commands of arbitrary return type
+*/
+spawn(cmd(print 'hello\n'));
+
+/* The spawn command will return a channel ref containing the value generated
+   by the spawned command. This makes coding fork-join programs very simple
+ */
+
+fun fib (n : nat) : cmd[nat] =
+    if n < 2 then
+        cmd(ret(n))
+    else cmd (
+        /* Spawn two sub-computation */
+        val c1 = cmd(spawn(fib (n - 1))) in
+        val c2 = cmd(spawn(fib (n - 2))) in
+        val v1 = cmd(sync(c1)) in
+        val v2 = cmd(sync(c2)) in
+        ret (v1 + v2)
+    )
+;
+
+print 'fib  1 = '; val x = fib 1 in (print x); print '\n';
+print 'fib  2 = '; val x = fib 2 in (print x); print '\n';
+print 'fib 10 = '; val x = fib 10 in (print x); print '\n';
+
+/*
+  The simplest program that will actually receive a message.
+  Note that there is no concrete syntax for processes at the REPL.
+  You can only enter a command, so in order to create multiple processes, you must use the spawn command.
+*/
+newchan h ~ nat in val x = cmd(spawn(cmd(emit[h](1)))) in sync[h];
+
+/*
+  This program nondeterministically chooses which message to print.
+*/
+newchan h ~ str in
+val x = cmd
+  spawn(cmd {
+    val m = cmd(sync[h]) in
+    print m,
+    print '\n'
+  })
+in
+val x = cmd(emit[h]('b')) in
+emit[h]( 'c' );
+
+/*
+  For convenience, we provide the sequentialization idiom to string together commands.
+  This is written as {m_1, ... , m_n} which gets translated to a bind(cmd(m_1),_.bind(...,_.m_n)))
+*/
+newchan h ~ str in {
+  spawn(cmd(emit[h]('abc'))),
+  val x = cmd(sync[h]) in
+  print x,
+  print '\n'
+};
+
+/*
+  We also provide a 'do(e)' idiom which is translated as bind(e, x.ret(x)).
+
+  This command has the same effect as just typing
+  print 'hello\n'.
+*/
+do(cmd(print 'hello\n'));

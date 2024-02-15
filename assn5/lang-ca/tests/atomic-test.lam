@@ -1,0 +1,97 @@
+load "atomic.lam";
+
+fun incr_update (r : atomic_ref) (n : nat) (counter : chan[unit]) : cmd[unit] =
+  ifz n then cmd(ret(())) else n =>
+  cmd({
+    spawn(cmd({
+      do(incr r),
+      emit(counter, ())
+    })),
+    do(incr_update r n counter)
+  })
+;
+
+fun cmpxchg_update (s : ref) (r : atomic_ref) (n : nat) (counter : chan[unit]) : cmd[unit] =
+  ifz n then cmd(ret(())) else n =>
+  cmd({
+    val old = deref s in
+    val res = cmpxchg r old (old + 2) in
+    do(
+      if res then cmd {emit(counter, ()), do(cmpxchg_update s r n counter)}
+      else cmpxchg_update s r (n + 1) counter
+    )
+  });
+
+fun wait (r : ref) (n : nat) (i : nat) (counter : chan[unit]) : cmd[unit] =
+  ifz i then cmd(
+    val m = deref r in
+    do(
+      if m = n then
+        cmd(print 'test passed\n')
+      else
+        cmd {
+          print 'test failed, got ',
+          print m,
+          print ' of ',
+          print n,
+          print ' updates\n'
+        }
+    )
+  ) else i =>
+  cmd {
+    sync(counter),
+    do(wait r n i counter)
+  }
+;
+
+val r = newref 0 in
+val a = new_atomic_ref r in
+newchan ctr ~ unit in
+{
+  print 'starting tiny sequential incr test...\n',
+  do(incr a),
+  do(incr a),
+  do(incr a),
+  val x = deref r in
+  do(
+    if x = 3 then
+      cmd(print 'test passed\n')
+    else
+      cmd {
+        print 'test failed, got ',
+        print x,
+        print ' instead of 3\n'
+      }
+  )
+};
+
+val n = cmd(ret(312)) in
+val r = newref 0 in
+val a = new_atomic_ref r in
+newchan ctr ~ unit in
+{
+  print 'starting incr test...\n',
+  spawn(wait r n n chan[ctr]),
+  spawn(incr_update a n chan[ctr]),
+  ret(())
+};
+
+val n = cmd(ret(10)) in
+val r = newref 0 in
+val a = new_atomic_ref r in
+newchan ctr ~ unit in
+{
+  print 'starting cmpxchg test...\n',
+  spawn(wait r (15 * n) (10 * n) chan[ctr]),
+  spawn(incr_update a n chan[ctr]),
+  spawn(cmpxchg_update r a n chan[ctr]),
+  spawn(incr_update a n chan[ctr]),
+  spawn(cmpxchg_update r a n chan[ctr]),
+  spawn(incr_update a n chan[ctr]),
+  spawn(cmpxchg_update r a n chan[ctr]),
+  spawn(incr_update a n chan[ctr]),
+  spawn(cmpxchg_update r a n chan[ctr]),
+  spawn(incr_update a n chan[ctr]),
+  spawn(cmpxchg_update r a n chan[ctr]),
+  ret(())
+};

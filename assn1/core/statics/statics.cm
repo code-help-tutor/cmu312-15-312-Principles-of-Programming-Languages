@@ -1,0 +1,17 @@
+Group
+  signature CONTEXT
+  functor SetContext
+  functor DictContext
+  functor ProductContext
+
+  signature STATICS
+is
+  ../../cmlib/cmlib.cm
+  ../common/common.cm
+
+  context.sig
+  context-set.fun
+  context-dict.fun
+  context-product.fun
+
+  statics.sig

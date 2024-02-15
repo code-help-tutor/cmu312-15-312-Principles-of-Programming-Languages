@@ -1,0 +1,2 @@
+handin.zip: lang-pycf/dynamics-error-pycf.sml lang-pycf/dynamics-pycf.sml lang-pycf/tasks/comprehension.pycf lang-pycf/tasks/sum_default.pycf lang-pycf/tasks/matrix_sum.pycf translate/synext.sml translate/translate.fun
+	zip handin.zip lang-pycf/dynamics-error-pycf.sml lang-pycf/dynamics-pycf.sml lang-pycf/tasks/comprehension.pycf lang-pycf/tasks/sum_default.pycf lang-pycf/tasks/matrix_sum.pycf translate/synext.sml translate/translate.fun

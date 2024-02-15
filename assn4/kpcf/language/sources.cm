@@ -1,0 +1,17 @@
+Library
+  library(../../support/sources.cm)
+  signature STATICS
+  structure Statics
+  signature DYNAMICS
+  structure Dynamics
+is
+  ../../cmlib/cmlib.cm
+
+  ../kpcfv-abt/abt.cm
+
+  ../../support/sources.cm
+
+  statics.sig
+  statics.sml
+  dynamics.sig
+  dynamics.sml

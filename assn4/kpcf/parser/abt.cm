@@ -1,0 +1,12 @@
+Group
+  signature /KPCF_ABT/KPCF_ABT
+  structure /kpcfAbt/kpcfAbt
+is
+  ../cmlib/cmlib.cm
+  temp.sig
+  temp.sml
+  abt.sig
+  abt.sml
+  ../kpcf-abt/kpcf.abt.sig
+  ../kpcf-abt/kpcf.abt.sml
+

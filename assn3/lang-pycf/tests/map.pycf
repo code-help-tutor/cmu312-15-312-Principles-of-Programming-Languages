@@ -1,0 +1,13 @@
+# List map.
+def map(args):
+    f = args[0]
+    l = args[1]
+
+    def helper(i):
+        return [] if len(l) <= i else [f(l[i])] + helper(i + 1)
+
+    return helper(0)
+
+
+if __name__ == "__main__":
+    print(map([lambda x: x + 1, [1, 5, 3, 1, 2]]))

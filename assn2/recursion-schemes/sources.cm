@@ -1,0 +1,9 @@
+Library
+  library(generic/sources.cm)
+  library(experiments/sources.cm)
+is
+  generic/sources.cm
+
+  experiments/sources.cm (
+    bind:(anchor:generic value:generic)
+  )

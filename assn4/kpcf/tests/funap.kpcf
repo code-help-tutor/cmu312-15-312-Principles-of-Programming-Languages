@@ -1,0 +1,5 @@
+let k is
+  (fun f (x : nat) : nat is
+    s(x))
+  (s(z)) in
+k

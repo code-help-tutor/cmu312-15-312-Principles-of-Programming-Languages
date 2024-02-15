@@ -1,0 +1,15 @@
+# Keep only the elements of class `int` from list `l`.
+def just_ints(l):
+    n = len(l)
+
+    def if_int(x):
+        return [x] if isinstance(x, int) else []
+
+    def loop(i):
+        return [] if n <= i else if_int(l[i]) + loop(i + 1)
+
+    return loop(0)
+
+
+if __name__ == "__main__":
+    print(just_ints([3, lambda x: x + 1, [], 1, True, [7], 2]))

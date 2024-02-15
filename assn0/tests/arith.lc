@@ -1,0 +1,13 @@
+# Church numerals
+def zero = λz. λs. z;
+def succ = λn. λz. λs. s (n z s);
+
+def add = λx. λy. x y succ;
+
+def three = succ (succ (succ zero));
+def four = succ three;
+def seven = add three four;
+
+
+compile seven zz ss;
+compile! seven zz ss;

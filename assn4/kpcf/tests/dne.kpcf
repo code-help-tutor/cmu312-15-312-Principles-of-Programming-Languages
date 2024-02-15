@@ -1,0 +1,6 @@
+(fn (k1 : cont[cont[unit]]) => letcc[unit] k2 in throw[unit](k1, k2))
+(letcc[cont[cont[unit]]] r in
+  throw[cont[cont[unit]]](
+    letcc[cont[unit]] k in throw[cont[unit]](r, k)
+  , <>)
+)

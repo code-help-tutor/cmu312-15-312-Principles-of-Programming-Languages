@@ -1,0 +1,47 @@
+sml
+name LexMain
+alphabet 255
+
+set alpha = (range 'a 'z 'A 'Z)
+set digit = (range '0 '9)
+set alphanumeric = (| alpha digit '_ '')
+set newline = (| 10 12 13) /* lf, ff, cr */
+set white = (| 32 9)  /* space, tab */
+set identstart = (| '_ alpha)
+
+function lexmain : t =
+  eos => eof
+  (+ white) => skip
+  newline => newline
+
+  (seq identstart (* alphanumeric)) => ident
+
+  '< => langle
+  '> => rangle
+  '{ => lbrace
+  '} => rbrace
+  '[ => lbracket
+  '] => rbracket
+  '( => lparen
+  ') => rparen
+
+  "->" => arrow
+  '| => bar
+  ': => colon
+  ', => comma
+  '; => semicolon
+  "=>" => darrow
+  '. => dot
+  "=" => equal
+  '+ => plus
+  '* => star
+
+  "(*" => begin_comment
+  epsilon => error
+
+function skipcomment : u =
+  "(*" => comment_open
+  "*)" => comment_close
+  newline => comment_newline
+  any => comment_skip
+  epsilon => comment_error

@@ -1,0 +1,2 @@
+ifz s(s(z)) { z => let f is z in f
+            | s(x) => x }

@@ -1,0 +1,14 @@
+Library
+  signature ABT
+  structure Abt
+  signature TEMP
+  structure Temp
+  structure Variable
+is
+  ../cmlib/cmlib.cm
+
+  abt.sig
+  abt.sml
+  temp.sig
+  temp.sml
+  variable.sml

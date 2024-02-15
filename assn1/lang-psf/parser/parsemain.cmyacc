@@ -1,0 +1,79 @@
+sml
+name ParseMain
+
+terminal IDENT of string
+terminal STRING of string
+
+terminal LANGLE
+terminal RANGLE
+terminal LBRACE
+terminal RBRACE
+terminal LBRACKET
+terminal RBRACKET
+terminal LPAREN
+terminal RPAREN
+
+terminal ARROW precr 2
+terminal BAR
+terminal COLON
+terminal COMMA
+terminal DARROW
+terminal DOT
+terminal EQUAL
+terminal PLUS precr 3
+terminal STAR precr 4
+terminal SEMICOLON
+
+terminal UNIT
+terminal VOID
+terminal FN
+terminal CASE
+terminal IN
+terminal L
+terminal R
+
+nonterminal Direction : dir =
+L => dir_l
+R => dir_r
+
+nonterminal Typ : typ =
+  LPAREN 1:Typ RPAREN => typ_id
+  1:IDENT => typ_var
+  1:Typ ARROW 2:Typ => typ_arrow
+  UNIT => typ_unit
+  1:Typ STAR 2:Typ => typ_prod
+  VOID => typ_void
+  1:Typ PLUS 2:Typ => typ_sum
+
+nonterminal BarOrNot : unittp =
+  /* epsilon */ => unittm
+  BAR => unittm
+
+nonterminal ExpAtom : exp =
+  LPAREN 1:Exp RPAREN => exp_id
+  1:IDENT => exp_var
+  LANGLE RANGLE => exp_triv
+  LANGLE 1:Exp COMMA 2:Exp RANGLE => exp_pair
+  CASE
+    LBRACKET 1:Typ RBRACKET 2:Exp LBRACE
+    RBRACE => exp_abort
+  CASE
+    LBRACKET 1:Typ RBRACKET 2:Exp LBRACE
+    BarOrNot L DOT 3:IDENT DARROW 4:Exp
+    BAR      R DOT 5:IDENT DARROW 6:Exp
+    RBRACE => exp_case
+
+nonterminal ExpApp : exp =
+  1:ExpAtom => exp_id
+  1:ExpApp 2:ExpAtom => exp_ap
+  IN LBRACKET 1:Direction RBRACKET LBRACE 2:Typ COMMA 3:Typ RBRACE 4:ExpAtom => exp_in
+
+nonterminal ExpPost : exp =
+  1:ExpApp => exp_id
+  1:ExpPost DOT 2:Direction => exp_pr
+
+nonterminal Exp : exp =
+  1:ExpPost => exp_id
+  FN LPAREN 1:IDENT COLON 2:Typ RPAREN DARROW 3:Exp => exp_lam
+
+start Exp

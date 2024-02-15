@@ -1,0 +1,17 @@
+/* CHANGE ME! */
+type ref = unit;
+
+/* CHANGE ME! */
+fun newref (n : nat) : cmd[ref] =
+    cmd(ret(()))
+;
+
+/* CHANGE ME! */
+fun deref (r : ref) : cmd[nat] =
+    cmd(ret(0))
+;
+
+/* CHANGE ME! */
+fun set (r : ref) (n : nat) : cmd[unit] =
+    cmd(ret(()))
+;

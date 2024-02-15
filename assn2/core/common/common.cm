@@ -1,0 +1,12 @@
+Group
+  signature SHOW
+
+  structure UnitError
+  structure StringError
+is
+  ../../cmlib/cmlib.cm
+
+  show.sig
+
+  error-unit.sml
+  error-string.sml

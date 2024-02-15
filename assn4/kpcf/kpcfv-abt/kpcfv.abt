@@ -1,0 +1,44 @@
+sort typ =
+| Comp of typ
+| Cont of typ
+| Unit
+| Prod of typ * typ
+| Void
+| Sum of typ * typ
+| Arrow of typ * typ
+| Nat
+| A
+| B
+| C
+| D
+
+sort stack =
+| Epsilon
+| Frame of stack * (value binding . exp)
+
+sort value =
+| Comp of exp
+| Cont of typ * stack
+| Unit
+| Tuple of value * value
+| InjL of (typ * typ) * value
+| InjR of (typ * typ) * value
+| Fun of (typ * typ) * ((value binding * value binding) . exp)
+| Lam of (value binding * typ) . exp
+| Zero
+| Succ of value
+
+sort exp =
+| Ret of value
+| Bind of value * (value binding . exp)
+| Letcc of typ * (value binding . exp)
+| Throw of typ * value * value
+| Split of value * ((value binding * value binding) . exp)
+| Abort of typ * value
+| Case of value * (value binding . exp) * (value binding . exp)
+| Ap of value * value
+| Ifz of value * exp * (value binding . exp)
+
+abt state =
+| Eval of stack * exp   (* k ▷ e *)
+| Ret of stack * value  (* k ◁ v *)

@@ -1,0 +1,46 @@
+sml
+name LexMainFun
+alphabet 255
+
+set alpha = (range 'a 'z 'A 'Z)
+set digit = (range '0 '9)
+set alphanumeric = (| alpha digit '_ '')
+set white = (| 32 9 10 13)  /* space, tab */
+set identstart = (| '_ alpha)
+
+regexp ident = (seq identstart (* alphanumeric))
+regexp ws = (+ white)
+regexp digits = (+ digit)
+
+set non_newline = (- any 10)
+regexp line_comment = (seq '# (* non_newline) 10)
+regexp block_comment = (seq "(*" (* any) "*)")
+
+function lexmain : t =
+  eos => eof
+  ws => skip
+  line_comment => skip
+  block_comment => skip
+
+  '( => lparen
+  ') => rparen
+
+  '. => dot
+  '\ => lambda
+  (seq 206 187) => lambda
+
+  "norm" => norm
+  '! => norm
+
+  "def" => def
+  "def!" => def_force
+  "undef" => undef
+  "print" => print
+  "print!" => print_force
+  "assert" => assert
+  "assert!" => assert_force
+  '= => eq
+  "!=" => neq
+
+  ident => ident
+  epsilon => error

@@ -1,0 +1,31 @@
+WeChat: cstutorcs
+QQ: 749389476
+Email: tutorcs@163.com
+- TopLevel.repl();
+->step (fix sum : nat->nat->nat is (lam x : nat => lam y : nat => ifz x {z => y | s (u) => s(sum u y)}) )  (s(z)) (s(s(z)));
+Statics : exp has type : nat
+ --> ap(ap(lam[nat](x@77. lam[nat](x@78. ifz(x@77, x@78, x@79. s(ap(ap(fix[parr(nat, parr(nat, nat))](x@80. lam[nat](x@81. lam[nat](x@82. ifz(x@81, x@82, x@83. s(ap(ap(x@80, x@83), x@82)))))), x@79), x@78))))), s(z)), s(s(z)))
+
+->eval;
+ s(s(s(z))) VAL
+
+->eval (case inl[nat,unit](z) { inl (x) => (s(x),x) | inr(p) => (z,z)});
+Statics : exp has type : prod(nat, nat)
+ pair(s(z), z) VAL
+
+->eval (case inl[nat,void](z) { inl (x) => (s(x),x) | inr(p) => abort[nat*nat](p)});
+Statics : exp has type : prod(nat, nat)
+ pair(s(z), z) VAL
+
+->eval prl((z,s(z)));
+Statics : exp has type : nat
+ z VAL
+
+->eval inl[nat,void](z);
+Statics : exp has type : sum(nat, void)
+ inl[nat; void](z) VAL
+
+->eval inr[nat,unit](());
+Statics : exp has type : sum(nat, unit)
+ inr[unit; unit](triv) VAL
+

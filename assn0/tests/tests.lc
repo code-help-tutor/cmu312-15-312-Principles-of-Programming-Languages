@@ -1,0 +1,126 @@
+# this is a test file for the lambda calculus interpreter.
+
+# if your text editor has troubles with Unicode lambda symbols,
+# consider upgrading, or try the "tests_no_unicode.lc" file.
+
+# line comments are written with the '#' symbol like this.
+(* block comments are written like this. *)
+
+(* statement can be definitions, prints, or assertions.
+   each normal statement must end with a semicolon.
+   note: the parser doesn't allow semicolons in comments,
+   so don't try it. *)
+
+(* unlike a let-binding, a def is purely a "lazy" alias:
+   any reference to the binding is immediately substituted
+   with an entire copy! *)
+def i = λx.x;
+
+# free variables are usable as definition fragments too.
+def j = x;
+
+# another type of statement is printing a term.
+print i;            # should print λx.x
+
+print j;            # should print _x, underscore representing a free variable
+
+# this is the K-combinator.
+def k = λx.λy.x;
+
+# this is the S-combinator.
+def s = λx.λy.λz.x z (y z);
+
+def ii = i i;
+
+print ii;           # should print (λx.x)(λx2.x2)
+
+(* terms are augmented with the "norm" keyword.
+   use "norm" to normalize a lambda-term, which otherwise
+   remains unevaluated. *)
+print norm ii;      # should print λx.x
+
+# '!' is a shorthand for "norm"
+print ! ii;
+
+(* check that two terms are alpha-equivalent using the assert statement.
+   alpha-equivalence checking on bare terms always terminates, but
+   is it possible in general to check extensional equivalence? *)
+assert ! ii = i;
+
+def skk = s k k;
+
+# an interesting result.
+assert ! skk = i;
+
+# this combinator applies its inputs to each other in reverse order.
+def reverse = s (k (s i)) k;
+
+print reverse;
+
+def reverse_partial = s (! (k (s i))) k;
+
+# check that partial normalization is idempotent.
+assert ! reverse = ! reverse_partial;
+
+# delete a binding using undef.
+undef reverse_partial;
+
+(* the def, print, and assert keywords have an alternative form using '!'.
+   for print and assert, it is simply sugar for normalizing the argument(s).
+   however, def! is a true let-binding: whereas
+
+     def x = norm (...)
+
+   will create a binding named x that is re-normalized each time it is used,
+
+     def! x = (...)
+
+   will immediately normalize the term and bind it to x.
+   in this lambda calculus, once the reference to x becomes normalized,
+   the two bindings are extensionally equivalent,
+   only differing in performance. but later in the course, we will see systems
+   in which eagerness is a semantically important difference... *)
+def! reverse = s (k (s i)) k;
+
+print! reverse;
+
+# another interesting result.
+assert! reverse s k = k s;
+
+# self-application combinator.
+def omega = λx.x x;
+
+print! omega;
+
+assert! omega = omega;
+
+def sii = s i i;
+
+assert! sii = omega;
+
+# what happens if you try to normalize this?
+def Omega = omega omega;
+
+def yxx = λx.y (x x);
+
+print! yxx;
+
+# the famed "Y combinator".
+def ycomb = λy.yxx yxx;
+
+print ycomb;
+
+# the same combinator, embedded in the SKI-calculus.
+def ycomb2 = s(k(s i i))(s(s(k s)k)(k(s i i)));
+
+(* can we effectively check that ycomb = ycomb2?
+   what happens? *)
+print ycomb2;
+
+def definitely_not_identity = reverse s k i;
+
+# check that terms are not equivalent to each other.
+assert! i != definitely_not_identity;
+
+(* no two free variables are equivalent. *)
+assert! free_variable != free_variable

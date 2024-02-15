@@ -1,0 +1,28 @@
+Library
+  library(abt.cm)
+
+  signature CONTEXT_FPC
+  structure ContextFPC
+  structure StaticsFPC
+
+  structure StateFPC
+  structure DynamicsFPC
+
+  structure ParserFPC
+  structure InterpreterFPC
+is
+  abt.cm
+  ../cmlib/cmlib.cm
+  ../core/core.cm
+
+  context-fpc.sig
+  context-fpc.sml
+  statics-error-fpc.sml
+  statics-fpc.sml
+
+  state-fpc.sml
+  dynamics-error-fpc.sml
+  dynamics-fpc.sml
+
+  parser/parser.cm
+  interpreter-fpc.sml

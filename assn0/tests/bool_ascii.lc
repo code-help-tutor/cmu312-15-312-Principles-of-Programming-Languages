@@ -1,0 +1,8 @@
+def true  = \t. \f. t;
+def false = \t. \f. f;
+def if    = \M. \M1. \M0. M M1 M0;
+
+# test cases
+def not = \b. if b false true;
+
+print! not true;

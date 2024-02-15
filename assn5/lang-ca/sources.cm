@@ -1,0 +1,51 @@
+Library
+  library(abt.cm)
+
+  signature CONTEXT_CA
+  structure ContextCA
+  signature STATICS_CA
+  structure StaticsCA
+
+  signature EXECUTION_CONTEXT
+  structure ExecutionContext
+  structure DynamicsCA
+
+  structure InterpreterCA
+
+  signature TEST_HARNESS
+  structure TestHarness
+
+  source(-)
+  library(../cmlib/cmlib.cm)
+  library(../core/core.cm)
+  library(parser/parser.cm)
+is
+  abt.cm
+  ../cmlib/cmlib.cm
+  ../core/core.cm
+
+  context-ca.sig
+  context-ca.sml
+  statics-ca.sig
+  statics-ca.sml
+
+  state-ca-exp.sml
+  dynamics-ca-exp.sml
+
+  queue.sig
+  queue.fun
+  execution-context.sig
+  execution-context.fun
+  execution-context.sml
+  dynamics-ca.fun
+  dynamics-ca.sml
+
+  process-executor.sig
+  process-executor.fun
+
+  parser/parser.cm
+  interpreter-ca.sml
+  interpreter-ca.fun
+
+  test-harness.sig
+  test-harness.sml

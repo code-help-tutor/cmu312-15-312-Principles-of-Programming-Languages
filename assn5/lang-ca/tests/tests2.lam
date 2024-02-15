@@ -1,0 +1,47 @@
+newchan h~str in val x = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in (val x = (cmd(emit[h]('c'))) in emit[h]( 'b' ));
+
+newchan h~str in val x = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in (val x = (cmd(emit[h]('c'))) in emit[h]( 'b' ));
+
+newchan h~str in val x = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in (val x = (cmd(emit[h]('b'))) in emit[h]( 'c' ));
+
+newchan h~str in {spawn(cmd(emit[h]('d'))), val x = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in (val x = (cmd(emit[h]('b'))) in emit[h]( 'c' ))};
+
+newchan h~str in {emit[h]('d'), val x = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in (val x = (cmd(emit[h]('b'))) in emit[h]( 'c' ))};
+
+newchan h~str in {spawn(cmd(emit[h]('abc'))), spawn(cmd(emit[h]('def'))), val x = cmd(sync[h]) in (print x)};
+newchan h~str in {spawn(cmd(emit[h]('abc'))), val x = cmd(sync[h]) in (print x), val y = cmd(sync[h]) in (print y)};
+newchan h~str in {spawn(cmd(emit[h]('abc'))), spawn(cmd(emit[h]('def'))), val x = cmd(sync[h]) in (print x), val y = cmd(sync[h]) in (print y)};
+newchan h~str in val _ = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in
+                                  val _ = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in
+                                  val _ = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in
+                                  val _ = cmd(spawn(cmd(val m = cmd(sync[h]) in (print m)))) in
+                                  (val _ = (cmd(emit[h]('b'))) in emit[h]( 'c' ));
+
+print '\n';
+
+val print_racey =
+  cmd(
+     spawn(cmd(val _ = cmd(print 'h') in
+     spawn(cmd(val _ = cmd(print 'e') in
+     spawn(cmd(val _ = cmd(print 'l') in
+     spawn(cmd(val _ = cmd(print 'l') in
+     spawn(cmd(val _ = cmd(print 'o') in
+     spawn(cmd(val _ = cmd(print ' ') in
+     spawn(cmd(val _ = cmd(print 'w') in
+     spawn(cmd(val _ = cmd(print 'o') in
+     spawn(cmd(val _ = cmd(print 'r') in
+     spawn(cmd(val _ = cmd(print 'l') in
+     spawn(cmd(val _ = cmd(print 'd') in
+     spawn(cmd(val _ = cmd(print '!') in
+     ret (())))))))))))))))))))))))))
+  );
+
+val race =
+  cmd {
+    spawn(print_racey),
+    spawn(print_racey),
+    spawn(print_racey)
+  };
+
+do(race);
+print '\n';

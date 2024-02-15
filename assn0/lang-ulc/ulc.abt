@@ -1,0 +1,3 @@
+sort term =
+| Lam of term binding . term
+| Ap of term * term

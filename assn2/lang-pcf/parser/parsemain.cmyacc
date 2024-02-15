@@ -1,0 +1,63 @@
+sml
+name ParseMain
+
+terminal IDENT of string
+terminal STRING of string
+
+terminal LANGLE
+terminal RANGLE
+terminal LBRACE
+terminal RBRACE
+terminal LBRACKET
+terminal RBRACKET
+terminal LPAREN
+terminal RPAREN
+
+terminal ARROW precr 2
+terminal BAR
+terminal COLON
+terminal COMMA
+terminal DARROW
+terminal DOT
+terminal EQUAL
+terminal PLUS precr 3
+terminal STAR precr 4
+terminal SEMICOLON
+
+terminal NAT
+terminal ZERO
+terminal SUCC
+terminal NUMBER of int
+terminal IFZ
+terminal FUN
+terminal IS
+
+nonterminal Typ : typ =
+  LPAREN 1:Typ RPAREN => typ_id
+  1:Typ ARROW 2:Typ => typ_arrow
+  NAT => typ_nat
+
+nonterminal BarOrNot : unittp =
+  /* epsilon */ => unittm
+  BAR => unittm
+
+nonterminal ExpAtom : exp =
+  LPAREN 1:Exp RPAREN => exp_id
+  1:IDENT => exp_var
+  ZERO => exp_zero
+  1:NUMBER => exp_number
+  IFZ 1:Exp LBRACE
+    BarOrNot ZERO DARROW 2:Exp
+    BAR      SUCC 3:IDENT DARROW 4:Exp
+    RBRACE => exp_ifz
+
+nonterminal ExpApp : exp =
+  1:ExpAtom => exp_id
+  1:ExpApp 2:ExpAtom => exp_ap
+  SUCC 1:ExpAtom => exp_succ
+
+nonterminal Exp : exp =
+  1:ExpApp => exp_id
+  FUN 3:IDENT LPAREN 4:IDENT COLON 1:Typ RPAREN COLON 2:Typ IS 5:Exp => exp_fun
+
+start Exp

@@ -1,0 +1,7 @@
+def none = todo;
+def some = λM. todo;
+def case = λM. λM0. λM1. todo;
+
+# test cases
+print! case none miracle alpha;  # miracle
+print! case (some conversion) miracle alpha;  # alpha conversion

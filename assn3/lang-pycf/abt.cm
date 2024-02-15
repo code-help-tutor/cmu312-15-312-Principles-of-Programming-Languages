@@ -1,0 +1,12 @@
+Library
+  signature PYCF
+  structure PyCF
+
+  library(../var/var.cm)
+is
+  ../cmlib/cmlib.cm
+  ../var/var.cm
+  ../abt/abt.cm
+
+  pycf.abt.sig
+  pycf.abt.sml

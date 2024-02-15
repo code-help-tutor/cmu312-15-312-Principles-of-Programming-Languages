@@ -1,0 +1,26 @@
+Group
+  signature PARSER
+
+  signature INTERPRETER_IMPL
+  functor TypedInterpreterImpl
+  functor TypedCompileInterpreterImpl
+
+  signature INTERPRETER
+  functor Interpreter
+
+  structure Input
+is
+  ../../cmlib/cmlib.cm
+  ../common/common.cm
+  ../statics/statics.cm
+  ../dynamics/dynamics.cm
+
+  parser.sig
+
+  interpreter-impl.sig
+  interpreter-impl-typed.fun
+  interpreter-impl-typed-compile.fun
+
+  interpreter.sig
+  input.sml
+  interpreter.fun

@@ -1,0 +1,28 @@
+\renewcommand{\atprocabt}[2]{\OpABT{\OpInst{\kw{run}}{#1}}{#2}}
+\renewcommand{\atproccst}[2]{\atprocabt{#1}{#2}}
+
+\newcommand{\newchncmdabt}[3]{\OpABT{\OpInst{\kw{newchan}}{#2}}{\AbsABT{#1}{#3}}}
+\newcommand{\newchncmdcst}[3]{\newchncmdabt{#1}{#2}{#3}}
+
+\newcommand{\actionabt}[2]{\vdash_{#2} \IsAct{#1}}
+\newcommand{\sendchcmdabt}[2]{\OpABT{\OpInst{\kw{emit}}{#1}}{#2}}
+
+\newcommand{\docmdabt}[1]{\OpABT{\kw{do}}{#1}}
+\newcommand{\docmdcst}[1]{\docmdabt{#1}}
+
+\newcommand{\jse}[4]{#1 \vdash_{#2} \IsOf{#3}{#4}}
+\newcommand{\jsm}[4]{#1 \vdash_{#2} \IsOfM{#3}{#4}}
+\newcommand{\jsp}[2]{\Gamma \vdash_{#1} \IsProc{#2}}
+\newcommand{\jspc}[3]{#1 \vdash_{#2} \IsProc{#3}}
+\newcommand{\jspeq}[2]{\StrCong{#1}{#2}}
+\newcommand{\jeval}[2]{\IsVal[#2]{#1}}
+\newcommand{\jestep}[3]{#1 \StepsTo[#2] #3}
+\newcommand{\jmstep}[6]{#1 \underset{#3}{\overset{#2}{\Rightarrow}} \nu~#4 \{ #5 ~||~ #6 \} }
+\newcommand{\jmstepp}[4]{#1 \underset{#3}{\overset{#2}{\Rightarrow}} #4 }
+\newcommand{\jestepm}[4]{#1 \underset{#3}{\overset{#2}{\Rightarrow}} #4 }
+
+\newcommand{\jpstep}[5]{#1 \underset{#3}{\overset{#2}{\mapsto}} \nu~#4 \{ #5 \} }
+\newcommand{\jpstepp}[4]{#1 \underset{#3}{\overset{#2}{\mapsto}} #4}
+\newcommand{\jpstepstar}[3]{#1 \underset{#2}{\overset{\silactcst}{\mapsto}}^* #3}
+\newcommand{\jpstepn}[4]{#1 \NFold{\overset{\silactcst}{\StepsTo[#2]}}{#4} #3}
+\newcommand{\jpstepdown}[3]{#1 \Downarrow_{#2} #3}

@@ -1,0 +1,26 @@
+Library
+  structure ParserState
+  structure Parser
+is
+  ../kpcf-abt/abt.cm
+  ../../cmlib/cmlib.cm
+  ../../support/sources.cm
+  ../../shared-abt/shared-abt.cm
+
+  monad/monad.sig
+  monad/monad-util.sig
+  monad/monad-util.sml
+  monad/state-monad.sig
+  monad/state-monad.sml
+
+  token.sml
+
+  lexer.sig
+  lexmain.cmlex.sml
+  lexer.sml
+
+  symboltable.sml
+  parserstate.sml
+  parser.sig
+  parsemain.cmyacc.sml
+  parser.sml

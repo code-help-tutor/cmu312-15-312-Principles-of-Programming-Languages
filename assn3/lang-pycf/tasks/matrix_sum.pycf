@@ -1,0 +1,13 @@
+# Recursively sum a matrix.
+def matrix_sum(m):
+    return 0
+
+
+if __name__ == "__main__":
+    # print(matrix_sum(5))  # 5
+    # print(matrix_sum([]))  # 0
+    # print(matrix_sum([3]))  # 3
+    # print(matrix_sum([1, 4, 2]))  # 7
+    # print(matrix_sum([[5, 1], [6, 8]]))  # 20
+    # print(matrix_sum([[[3], [5]], [[2], [0]], [[7], [9]]]))  # 26
+    print(matrix_sum)

@@ -1,0 +1,6 @@
+Library
+  structure PrettyDoc
+is
+  $/basis.cm
+
+  PrettyDoc.sml

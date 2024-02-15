@@ -1,0 +1,10 @@
+# Flattens the input list completely!
+def flatten(l):
+    def loop(i):
+        return [] if len(l) <= i else flatten(l[i]) + loop(i + 1)
+
+    return loop(0) if isinstance(l, list) else [l]
+
+
+if __name__ == "__main__":
+    print(flatten([[1, [5]], [[]], [[[[3]]], [True, 2]]]))

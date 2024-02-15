@@ -1,0 +1,4 @@
+# Simple arithmetic.
+
+if __name__ == "__main__":
+    print(1 + 5 + -3 + 1 + 2)

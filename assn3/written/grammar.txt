@@ -1,0 +1,37 @@
+WeChat: cstutorcs
+QQ: 749389476
+Email: tutorcs@163.com
+cls ::= num | fun | nil | cons
+ident ::= (* a letter followed by alphanumeric characters, _, or ' *)
+numeral ::= (* a series of digits *)
+
+directive ::=
+  step <dexp>;
+| step;
+| eval <dexp>;
+| eval;
+| trans <dexp>;
+| use "<filename>";  (* Filename of file containing a <dexp> *)
+
+dexp ::=
+  <ident>
+| z
+| s <dexp>
+| <numeral>
+| ifz <dexp> { z => <dexp> | s <ident> => <dexp> }
+| let <decls> in <dexp> end
+| fn (<ident>) <dexp>
+| <dexp> <dexp>
+| fnfixfun (<ident>) (<ident>) <dexp>
+| <>
+| <<dexp>, <dexp>>
+| <dexp>.l
+| <dexp>.r
+| <cls>? <dexp>
+| cond <dexp> <dexp> <dexp>
+| (<dexp>)
+
+decls ::= <decl> | <decl> <decls>
+
+decl ::=
+  val <ident> = <dexp>

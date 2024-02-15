@@ -1,0 +1,950 @@
+\documentclass[11pt]{article}
+
+\input{setup}
+\input{setup-assn5}
+\include{defs}
+\input{issolution}
+
+\setcounter{taskcounter}{1}
+\setcounter{taskPercentCounter}{0}
+\setcounter{taskcounterSection}{\value{section}}
+
+\newcounter{infercount}
+\newcommand{\infern}[2]{will be shadowed}
+\newcommand{\axiomn}[1]{\infern{ }{#1}}
+
+\title{Assignment 5: \\
+       Concurrency}
+
+\begin{document}
+
+\maketitle
+
+This assignment studies concurrency through the lens of a concurrent programming language known as Concurrent Algol (\LangCA{}).
+
+Effectful computations (involving side-effects) distinguish themselves from ``pure'' computation by involving some sort of interaction. Think IO effects (user interaction)
+or reference cells (state/memory interaction). We seek to make this more explicit by introducing \underline{interaction as a primitive notion}.
+
+To this end, $\LangCA{}$ augments our existing expression/command modal separation with two new sorts accomodating interaction: \textit{processes} and \textit{actions}. The formulation of $\LangCA{}$ as presented in this assignment is derived from that of Chapter 40 of \PFPL and relevant supplements posted on the course website.
+
+\LangCA{} is conceptually similar to the concurrent programming language \href{https://go.dev/}{Go}.
+
+
+\section{Syntax and Semantics}\label{sec:syn-sem}
+
+First, we will introduce the user language of \LangCA{}.
+
+\begin{synchart}{ca}
+  \TypeSort  & \tau & \bnfdef & \dots                     & \dots                     & \text{other types} \\
+  &      & \bnfalt & \gcmdtyabt{\tau}          & \gcmdtycst{\tau}          & \text{command} \\
+  &      & \bnfalt & \chtyabt{\tau}            & \chtycst{\tau}            & \text{channel} \\
+  \\
+  \ExprSort  & e    & \bnfdef & \dots                     & \dots                     & \text{other expressions} \\
+  &      & \bnfalt & \tcmdabt{\tau}{m}         & \cmdcst{m}                & \text{encapsulation} \\
+  &      & \bnfalt & \chabt{}{a}               & \chcst{}{a}               & \text{channel reference} \\
+  \\
+  \Sort{Cmd} & m    & \bnfdef & \retcmdabt{e}             & \retcmdcst{e}             & \text{return} \\
+  &      & \bnfalt & \seqcmdabt{e}{x}{m}       & \seqcmdcst{e}{x}{m}       & \text{sequence} \\
+  &      & \bnfalt & \spawncmdabt{e}           & \spawncmdcst{e}           & \text{spawn process} \\
+  &      & \bnfalt & \ssendrefcmdabt{e_1}{e_2} & \ssendrefcmdcst{e_1}{e_2} & \text{send message on channel} \\
+  &      & \bnfalt & \synccmdabt{e}            & \synccmdcst{e}            & \text{receive message on channel} \\
+  &      & \bnfalt & \newchncmdabt{a}{\tau}{m} & \newchncmdcst{a}{\tau}{m} & \text{new channel} \\
+\end{synchart}
+
+You may think of \emph{other types} and \emph{other expressions} as common features discussed earlier in the semester, such as products, sums, and natural numbers.
+
+\newcommand{\highlight}[1]{\colorbox{blue!10}{#1}}
+
+\begin{defn}[Synchronicity]
+  We say that an operation runs \highlight{synchronously} if it must complete before further operations can begin.
+  Conversely, we say that an operation runs \highlight{asynchronously} if it immediately returns, running concurrently and thus not blocking further operations.
+\end{defn}
+
+We informally describe the behavior of each command as follows:
+\begin{itemize}
+  \item $\retcmdabt{e}$:
+        An ``interface'' between the expression and command sorts, including all expressions as trivial commands.
+  \item $\seqcmdabt{e}{x}{m}$:
+        Sequencing of computation, \highlight{synchronously} running the suspended computation $e$ and then binding its result to $x$ and running $m$.
+        Note that $e$ is an expression, allowing the programmer to \emph{compute} a command to run.
+  \item $\spawncmdabt{e}$:
+        Creation of a new concurrent process, where $e$ is the (encapsulated) command that will be \highlight{asynchronously} executed by the process.
+        return type of the command as usual.
+        Returns a ``return channel'' channel reference, which the spawned process uses to send the value returned by the command.
+  \item $\ssendrefcmdabt{e_1}{e_2}$:
+        Sends the value $e_2$ along channel reference $e_1$ \highlight{asynchronously}, returning immediately regardless of whether the message has been received yet.
+  \item $\synccmdabt{e}$:
+        Waits for a value to be transmitted along channel reference $e$ \highlight{synchronously}, blocking until a value is received.
+        Upon seeing a transmission, returns the value.
+  \item $\newchncmdabt{a}{\tau}{m}$:
+        Creates a new channel for use within the command $m$.
+\end{itemize}
+
+
+\subsection{Statics}
+
+The statics of the language are defined with three judgments.
+As usual, $\jse{\Gamma}{\Sigma}{e}{\tau}$ is the typing rule for expressions, here including a channel context $\Sigma = \Has{a_1}{\tau_1}, \dots, \Has{a_n}{\tau_n}$ describing the names and associated types of channels that are available for use.
+The rules for the new forms are given below.
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{SE}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jse{\Gamma}{\Sigma}{e}{\tau}$}
+\begin{mathpar}
+  \infern
+  {\jsm{\Gamma}{\Sigma}{m}{\tau}}
+  {\jse{\Gamma}{\Sigma}{\tcmdabt{\tau}{m}}{\gcmdtyabt{\tau}}}
+
+  \infern
+  { }
+  {\jse{\Gamma}{\Sigma, \Has{a}{\tau}}{\chabt{}{a}}{\chtyabt{\tau}}}
+\end{mathpar}
+
+The judgment $\jsm{\Gamma}{\Sigma}{m}{\tau}$ formalizes the typing for commands.
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{SM}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jsm{\Gamma}{\Sigma}{m}{\tau}$}
+\begin{mathpar}
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\tau}}
+  {\jsm{\Gamma}{\Sigma}{\retcmdabt{e}}{\tau}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\gcmdtyabt{\tau}} \\
+    \jsm{\Gamma,x:\tau}{\Sigma}{m}{\tau'}
+  }
+  {\jsm{\Gamma}{\Sigma}{\seqcmdabt{e}{x}{m}}{\tau'}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\gcmdtyabt{\tau}}
+  }
+  {\jsm{\Gamma}{\Sigma}{\spawncmdabt{e}}{\chtyabt{\tau}}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e_1}{\chtyabt{\tau}} \\
+    \jse{\Gamma}{\Sigma}{e_2}{\tau}
+  }
+  {\jsm{\Gamma}{\Sigma}{\ssendrefcmdabt{e_1}{e_2}}{\unittyabt}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\chtyabt{\tau}}}
+  {\jsm{\Gamma}{\Sigma}{\synccmdabt{e}}{\tau}}
+
+  \infern
+  {\jsm{\Gamma}{\Sigma, \Has{a}{\tau}}{m}{\tau'}}
+  {\jsm{\Gamma}{\Sigma}{\newchncmdabt{a}{\tau}{m}}{\tau'}}
+\end{mathpar}
+
+
+\subsection{Examples}
+
+Using the informal description of the dynamics, we consider some simple examples.
+
+\begin{example}
+  Consider the following command:
+  \[ \seqcmdabt{\cmdabt{\ssendrefcmdabt{\chabt{}{a}}{312}}}{u}{\synccmdabt{\chabt{}{a}}} \]
+  Running this command given a channel $\Has{a}{\nattycst}$ would behave as follows:
+  \begin{enumerate}
+    \item Send $312$ on channel $a$ asynchronously, continuing immediately while the message $312$ is available on channel $a$.
+    \item Synchonize on channel $a$, receiving the message $312$ immediately because it is already available on channel $a$.
+    \item Return $312$ as the result.
+  \end{enumerate}
+\end{example}
+
+\begin{example}
+  Consider the following command:
+  \[ \seqcmdabt{\cmdabt{\synccmdabt{\chabt{}{a}}}}{u}{\ssendrefcmdabt{\chabt{}{a}}{312}} \]
+  Running this command given a channel $\Has{a}{\nattycst}$ would behave as follows:
+  \begin{enumerate}
+    \item Synchonize on channel $a$, but getting ``blocked''/stuck forever because no messages are available on channel $a$.
+  \end{enumerate}
+\end{example}
+
+\begin{example}
+  Consider the following command:
+  \[ \seqcmdabt{\cmdabt{\ssendrefcmdabt{\chabt{}{a}}{312}}}{u}{\seqcmdabt{\cmdabt{\synccmdabt{\chabt{}{a}}}}{x}{\synccmdabt{\chabt{}{a}}}} \]
+  Running this command given a channel $\Has{a}{\nattycst}$ would behave as follows:
+  \begin{enumerate}
+    \item Send $312$ on channel $a$ asynchronously, continuing immediately while the message $312$ is available on channel $a$.
+    \item Synchonize on channel $a$, receiving the message $312$ immediately because it is already available on channel $a$.
+    \item Synchonize on channel $a$, but getting ``blocked''/stuck forever because no messages are available on channel $a$.
+  \end{enumerate}
+\end{example}
+
+\begin{task}{5}
+  Let $\IsOf{f}{\arrtycst{\tau_1}{\tau_2}}$ and $\Sigma = \Has{a}{\tau_1}, \Has{b}{\tau_2}$.
+  Write a command $\jsm{}{\Sigma}{m}{\unittycst}$ that reads a value $x$ from channel $a$ and sends $\appcst{f}{x}$ over channel $b$.
+\end{task}
+\solution{command-forward}
+
+Henceforth, we abbreviate $\seqcmdabt{e}{x}{\retcmdabt{x}}$ as $\docmdabt{e}$.
+
+\begin{example}[Producer]
+  Let:
+  \begin{align*}
+    m_\text{emit}    & = \seqcmdabt{\cmdabt{\ssendrefcmdabt{\chabt{}{a}}{n}}}{x}{\docmdabt{\appcst{f}{n'}}}                                             \\
+    m_\text{produce} & = \docmdabt{\appabt{\funabt{\nattycst}{\gcmdtyabt{\unittycst}}{f}{n}{\varifzabt{n}{\cmdabt{\retcmdabt{\unitexabt}}}{n'}{\cmdabt{m_\text{emit}}}}}{10}}
+  \end{align*}
+  Running this command given a channel $\Has{a}{\nattycst}$ spawns 10 asynchronous processes, each of which emits a number $1 \le n \le 10$ on channel $a$ and immediately exits.
+  Notice that we use a recursive function to compute a ``large'' command.
+\end{example}
+
+\begin{task}{15}
+  Write a ``consumer'' $m_\text{consume}$ that reads 10 natural numbers over channel $a$ and returns their sum.
+  You may use $e_1 + e_2$ to sum two natural numbers.
+
+  Running $\seqcmdabt{m_\text{produce}}{u}{m_\text{consume}}$ should evaluate to $55$.
+\end{task}
+\begin{hint}
+  You may wish to model your solution on $m_\text{produce}$.
+\end{hint}
+\solution{producer-consumer}
+
+\begin{remark}
+  The \href{https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem}{producer-consumer pattern} is common in concurrent programming.
+\end{remark}
+
+
+
+\section{Processes}\label{sec:processes}
+
+Underlying \LangCA{} is a sort of \emph{procesess}, which concurrently communicate.
+Processes send and receive messages over channels, which we will denote $a$.
+\begin{synchart}{proc}
+  \Sort{Proc}   & p      & \bnfdef & \stopprocabt             & \stopproccst             & \text{nullary concurrent composition} \\
+  &        & \bnfalt & \concprocabt{p_1}{p_2}   & \concproccst{p_1}{p_2}   & \text{binary concurrent composition} \\
+  &        & \bnfalt & \tnewprocabt{\tau}{a}{p} & \tnewproccst{\tau}{a}{p} & \text{new channel} \\
+  &        & \bnfalt & \atprocabt{a}{m}         & \atproccst{a}{m}         & \text{atomic} \\
+  &        & \bnfalt & \sendprocabt{a}{e}       & \sendproccst{a}{e}       & \text{send on channel $a$} \\
+  &        & \bnfalt & \recvprocabt{a}{x}{p}    & \recvproccst{a}{x}{p}    & \text{receive on channel $a$} \\
+  \\
+  \Sort{Action} & \alpha & \bnfdef & \silactabt               & \silactcst               & \text{silent} \\
+  &        & \bnfalt & \tsndactabt{}{a}{e}      & \tsndactcst{}{a}{e}      & \text{send} \\
+  &        & \bnfalt & \trcvactabt{}{a}{e}      & \trcvactcst{}{a}{e}      & \text{receive} \\
+\end{synchart}
+
+\paragraph{Atomic Processes}
+Atomic processes $\atproccst{a}{m}$ contain commands $m$, which will be user-written programs; we will introduce commands in \cref{sec:syn-sem}.
+It will be arranged in the dynamics that the channel $a$ of an atomic process eventually receives the result of the command $m$; you may observe that channel $a$ serves as a unique ``process ID'' for a given atomic process.
+
+\begin{remark}
+  Processes and actions are not user-level constructs, like stacks $k$ and states $s$ in \LangKPCF{}.
+  Programmers will write commands $m$, \emph{not} processes $p$.
+\end{remark}
+
+\subsection{Statics}
+
+The statics for processes are given in \cref{sec:statics:proc:typing}.
+
+Processes $p$ are identified up to structural congruence, described in \cref{sec:statics:proc:cong}.
+Of note, structural congruence states that:
+\begin{itemize}
+  \item Concurrent composition operators $\stopproccst$ and $\concproccst{-}{-}$ form a commutative monoid, allowing us to reorder concurrent composition of processes.
+  \item New channels $\tnewproccst{\tau}{a}{p}$ can be hoisted to the top of a process.
+\end{itemize}
+For example, we have:
+\[
+  \jspeq
+  {\concproccst{\concproccst{(\tnewproccst{\tau_1}{a_1}{p_1})}{\stopproccst}}{(\recvproccst{b}{x}{\tnewproccst{\tau_2}{a_2}{p_2}})}}
+  {\tnewproccst{\tau_1}{a_1}{\tnewproccst{\tau_2}{a_2}{\concproccst{p_1}{\recvproccst{b}{x}{p_2}}}}}
+\]
+
+\subsection{Dynamics}\label{sec:procs:dynamics}
+
+The dynamics of processes are given via actions $\alpha$; the judgment $\jpstepp{p}{\alpha}{\Sigma}{p'}$ states that process $p$ steps to $p'$ with action $\alpha$.
+The key rules are given below; we provide the rules for atomic processes in \cref{sec:dynamics:procs}.
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{P}_{\arabic{infercount}}\stepcounter{infercount})}
+\renewcommand{\axiomn}[1]{\infern{ }{#1}}
+\fbox{$\jpstepp{p}{\alpha}{\Sigma}{p'}$}
+\begin{mathpar}
+  \infern
+  {\jpstepp{p_1}{\alpha}{\Sigma}{p_1'}}
+  {\jpstepp{\concproccst{p_1}{p_2}}{\alpha}{\Sigma}{\concproccst{p_1'}{p_2}}}
+
+  \infern
+  {\jpstepp{p_1}{\tsndactcst{}{a}{e}}{\Sigma, \Has{a}{\tau}}{p_1'} \\
+    \jpstepp{p_2}{\trcvactcst{}{a}{e}}{\Sigma, \Has{a}{\tau}}{p_2'}
+  }
+  {\jpstepp{\concproccst{p_1}{p_2}}{\silactcst}{\Sigma, \Has{a}{\tau}}{\concproccst{p_1'}{p_2'}}}
+
+  \infern
+  {\jpstepp{p}{\alpha}{\Sigma, \Has{a}{\tau}}{p'}\\
+    \actionabt{\alpha}{\Sigma}}
+  {\jpstepp{\tnewproccst{\tau}{a}{p}}{\alpha}{\Sigma}{\tnewproccst{\tau}{a}{p'}}}
+
+  \infern
+  { }
+  {\jpstepp{\sendproccst{a}{e}}{\tsndactcst{}{a}{e}}{\Sigma, \Has{a}{\tau}}{\stopproccst}}
+
+  \infern
+  { }
+  {\jpstepp{\recvproccst{a}{x}{p}}{\trcvactcst{}{a}{e}}{\Sigma, \Has{a}{\tau}}{\Subst{e}{x}{p}}}
+\end{mathpar}
+
+\begin{task}{5}
+  Let $\Sigma = \Has{a}{\nattycst}, \Has{b}{\nattycst}, \Has{c}{\nattycst}$.
+  Provide a process $p$ with $\jspc{}{\Sigma}{p}$ such that if $p$ receives a natural number $n$ along channel $a$, it will send $n$ along channels $b$ and $c$.
+\end{task}
+\solution{proc-forward}
+
+\begin{task}{10}
+  Consider the following process $p$:
+  \[ \concproccst{\concproccst{\sendproccst{a}{1}}{\sendproccst{a}{2}}}{\recvproccst{a}{x}{\sendproccst{b}{x}}} \]
+  We have $\jspc{}{\Sigma}{p}$, where $\Sigma = \Has{a}{\nattycst}, \Has{b}{\nattycst}$.
+  Provide two processes, $p'_1$ and $p'_2$, such that $\jpstepp{p}{\silactcst}{\Sigma}{p'_1}$ and $\jpstepp{p}{\silactcst}{\Sigma}{p'_2}$ but it is \emph{not} the case that $\jspeq{p'_1}{p'_2}$.
+  This shows that the dynamics of \LangCA{} are nondeterministic!
+\end{task}
+\solution{proc-nondeterminism}
+
+\subsection{Safety}
+
+Like the other languages we have considered in this course, \LangCA{} satisfies progress and preservation theorems.
+Here, we will consider the progress theorem.
+
+One might imagine that the progress theorem might say the following:
+\begin{theorem}[Faulty Progress]\label{thm:faulty-progress}
+  If $\jspc{}{\Sigma}{p}$, then either $\jspeq{p}{\stopproccst}$ or $\jpstepp{p}{\silactcst}{\Sigma}{p'}$ for some $p'$.
+\end{theorem}
+
+This theorem holds for some processes $p$.
+For example:
+\[
+  \jpstepp
+  {\concproccst{\sendproccst{a}{312}}{\recvproccst{a}{x}{\stopproccst}}}
+  {\silactcst}
+  {\Has{a}{\nattycst}}
+  {\stopproccst}
+\]
+
+However, in general, this theorem is false!
+
+\begin{task}{10}
+  Provide a process $p$ that is a counterexample to \cref{thm:faulty-progress}.
+  Briefly (one sentence) justify why your choice of $p$ is a counterexample.
+  You should not use atomic processes $\atproccst{a}{m}$ in your counterexample.
+\end{task}
+\begin{hint}
+  Note the $\silactcst$ action in \cref{thm:faulty-progress}.
+\end{hint}
+\begin{hint}
+  Your counterexample can be very simple!
+\end{hint}
+\solution{faulty-progress}
+
+The true progress theorem involves non-$\silactcst$ actions:
+\begin{theorem}[Progress]\label{thm:progress}
+  If $\jspc{}{\Sigma}{p}$, then either $\jspeq{p}{\stopproccst}$ or $\jspeq{p}{\gnewproccst{\Sigma'}{p'}}$ such that $\jpstepp{p'}{\alpha}{\Sigma, \Sigma'}{p''}$ for some $p''$ and some $\actionabt{\alpha}{\Sigma, \Sigma'}$.
+\end{theorem}
+
+Recall the following statics rule from \cref{sec:statics:proc:typing}:
+
+\begin{mathpar}
+  \inferrule
+    { }
+    {\jsp{\Sigma}{\stopproccst}}
+    (\text{SP}_1)
+
+  \inferrule
+    {\jsp{\Sigma}{p_1} \\ \jsp{\Sigma}{p_2}}
+    {\jsp{\Sigma}{\concproccst{p_1}{p_2}}}
+    (\text{SP}_2)
+
+  \inferrule
+    {\jse{\Gamma}{\Sigma, \Has{a}{\tau}}{e}{\tau}}
+    {\jsp{\Sigma, \Has{a}{\tau}}{\sendproccst{a}{e}}}
+    (\text{SP}_5)
+\end{mathpar}
+
+\begin{task}{15}
+  Prove \cref{thm:progress} for these three statics rules, using the dynamics given above and the structural congruence rules in \cref{sec:statics:proc:cong}.
+\end{task}
+\solution{progress}
+
+
+\section{Implementing the Dynamics}\label{sec:dyn-impl}
+
+In this section, you will implement parts of the dynamics for \LangCA.
+
+In order to work up to structural congruence of processes, we will use an ``execution context'' data structure to maintain a canonical form for processes, thus mediating communication.
+You should read \path{lang-ca/execution-context.sig} to understand how this data structure will behave.
+
+\begin{remark}
+  You may attempt the following tasks in either order.
+\end{remark}
+
+\subsection{Dynamics}
+
+\task{30}
+Implement the remaining cases of \code{progress} in \path{lang-ca/dynamics-ca.fun}.
+
+\code{progress (a, m)} transitions an atomic processes $\atproccst{a}{m}$ to an execution context (i.e., a collection of atomic processes).
+In particular, \code{progress} will be based directly on rules R$_1$-R$_7$ from \cref{sec:dynamics:procs}, so it will \emph{not} be recursive.
+The output in each case will be built via the operations provided by \code{structure EC}, where:
+\begin{codeblock}
+  structure EC : EXECUTION_CONTEXT where type chan = CA.Chan.t
+  and type msg  = CA.Exp.t
+\end{codeblock}
+
+\paragraph{Testing}
+To test your implementation, move the reference solution heap image into \path{lang-ca/} and include your dynamics file and the updated top-level structure:
+\begin{codeblock}
+  smlnj @SMLload lang-ca
+  - use "dynamics-ca.fun"; use "dynamics-ca.sml"; use "interpreter-ca.sml";
+  (* ... *)
+  - InterpreterCA.evalFile "tests.lam";
+\end{codeblock}
+This will make use of the reference implementation of \code{EC}.
+You should see the following output:
+\begin{codeblock}
+  hello
+  0
+  hello
+  fib  1 = 1
+  fib  2 = 1
+  fib 10 = 55
+  b  (* nondeterministic, could be c *)
+  abc
+  hello
+\end{codeblock}
+You can also run:
+\begin{codeblock}
+  - InterpreterCA.repl ();
+  -> load "tests.lam";
+\end{codeblock}
+for a more verbose output, including printing the execution context.
+You may find it useful to change (or comment out parts of) \path{tests/tests.lam} when debugging.\footnote{
+  In \path{lang-ca/interpreter-ca.fun}, the function \code{evalCmd} builds the initial processes.
+  In \path{lang-ca/process-executor.sml}, the function \code{run} contains the entry point for the dynamics.
+}
+
+\subsection{Execution Context}
+
+A process can be put into a \emph{canonical form} containing:
+\begin{itemize}
+  \item
+        For each channel $a$, \emph{either} a collection of surplus messages (of the form $\sendproccst{a}{e}$) \emph{or} a collection of identifiers for waiting processes.
+        There will never be both a surplus and a deficit simultaneously: if a message and a waiter would be present on a channel, the waiter should be given the message and marked as ready.
+  \item
+        A map from waiter identifiers to true waiters (of the form $\AbsABT{x}{p}$).
+  \item
+        A collection of ready processes, each of the form $\atproccst{a}{m}$.
+\end{itemize}
+
+We will call such a canonical form an \emph{execution context} and represent all processes in this form.
+In this subsection, we will implement this data structure, using rules P$_1$-P$_5$ (transitions for non-atomic processes) from \cref{sec:procs:dynamics} and rules E$_1$-E$_{13}$ (structural congruence) from \cref{sec:statics:proc:cong} to convert a process to normal form.
+
+The signature in \path{lang-ca/execution-context.sig} details which operations should be supported by an execution context.
+The type parameter \code{'a} represents an abstract atomic process type; in the dynamics, it will be instantiated at \code{CA.Chan.t * CA.Cmd.t}.
+
+All new channel identifiers $\tnewproccst{a}{\tau}{p}$ can be hoisted to the top via rules E$_{12}$ and E$_{13}$.
+Therefore, in the code, we do \emph{not} include an operation on execution contexts to bind a new channel; this is handled by \code{Chan.new}, and we may assume capture is never incurred.
+
+\task{40}
+Implement \code{functor ExecutionContext} in \path{lang-ca/execution-context.fun} according to the specification in \path{lang-ca/execution-context.sig}.
+Comments in the file describe how you should understand the types.
+
+Observe that \code{functor ExecutionContext} is parameterized on arbitrary channel and message types.
+Thus, your implementation will not involve any \LangCA{}-specific constructs.
+
+Additionally, it is parameterized on a queue data structure, which you should use internally to queue messages, waiters, and ready processes.
+To simulate nondeterminism, the provided implementation may be randomized.
+
+\paragraph{Testing}
+To test your execution context independently, you can run \code{TestHarness.testEC}.
+By default, \code{TestHarness} introduces random dequeueing, so you may notice that tests fail only sometimes.
+If you wish to test deterministically, you can use structure \code{Queue (val random = false)} in \path{tests/tests.sml}.
+In the same file, you can read the test cases to aid with debugging (using \code{TestHarness.testEC true} for verbose test output).
+
+You should now be able to run the aforementioned \LangCA{} test cases using your execution context, as well, by loading \path{sources.cm}.
+
+
+\section{References}\label{sec:refs}
+
+Next, we will implement free assignable references in Concurrent Algol.
+
+\subsection{Reference Cells}
+
+\task{35} In \path{tests/refs.lam}, implement the signature of three functions
+that define ref cells of natural numbers, a type named \code{ref}:
+\begin{itemize}
+  \item \code{newref}, when given an initial value, should return a ref containing that value.
+  \item \code{deref}, when given a ref cell, should return the contents of the cell,
+        such that the cell may be read again to obtain the same value in the future until
+        the cell is reset.
+  \item \code{set}, when given a ref cell and a new value, should update the contents of the cell
+        such that future dereferences return the new value until the cell is reset again.
+\end{itemize}
+
+You are given the test file \path{tests/refs-test.lam} to verify your implementation. Feel free to write more tests of your own.
+
+To help you get started, first take a look at \path{tests/tests.lam} and \path{tests/tests2.lam}, which give some examples of using the CA concrete syntax. If you would like a complete, formal presentation of the concrete syntax, be sure to look at Section \ref{section:concrete-syntax}.
+
+Next, please check out \path{tests/prng.lam} and \path{tests/prng-test.lam}. This is an implementation of a pseudorandom number generator (PRNG), specifically one called \href{https://en.wikipedia.org/wiki/Blum_Blum_Shub}{Blum Blum Shub}. It defines a type named \code{prng} with two functions:
+\begin{itemize}
+  \item \code{newprng}, when given a modulus and seed value (both natural numbers), should return a prng initialized with those values
+  \item \code{next}, when given a prng, should output the value stored within the prng as the next pseudorandom number, then update the prng's value to be the square of the previous value mod the modulus
+\end{itemize}
+
+The key takeaways from the PRNG example are:
+\begin{itemize}
+  \item how it simulates ``memory'' or ``state'' using the \code{server} process
+  \item how \code{next} communicates back and forth with the \code{server} process using channel-passing
+\end{itemize}
+
+Do familiarize yourself with the PRNG example, as your \code{ref} implementation will likely use similar strategies and code constructs.
+
+
+\subsection{Atomic References}
+
+The mutable references we implemented work well if we agree to be careful with concurrent reads and writes.
+If we try to do many reads and writes concurrently, though, we can encounter race conditions!
+
+For example, consider incrementing a reference cell.
+Normally, it requires a read from the cell, then a write of the incremented value back to the cell.
+If there is only one thread performing the increment operation, everything will proceed as planned.
+
+However, what if multiple threads try to increment a reference simultaneously?
+The first thread may read from the cell, followed immediately by the second thread.
+Then, both threads write back the value they saw plus one---the same value for both threads.
+One of the increments got lost, and we have a \emph{race condition}, meaning the increment
+operation is not \emph{thread-safe}.
+
+Your next task is to make the references thread-safe by providing \emph{atomic} operations
+that cannot be interrupted in such ways.
+
+\task{35} In \path{tests/atomic.lam}, implement three operations on a new type \code{atomic_ref}:
+\begin{itemize}
+  \item \code{new_atomic_ref}, when given a reference, wraps it to make it atomic.
+  \item \code{incr}, which performs an atomic increment of the cell: no two threads performing
+        a concurrent \code{incr} operation may interfere with each other.
+  \item \code{cmpxchg}, which performs an atomic compare-and-exchange: given a ref cell, a value
+        \code{expected}, and a value \code{new}, if the cell currently has the value \code{expected},
+        update it to have value \code{new} and return true. Otherwise, make no change to the contents
+        and return false. The entire operation must happen atomically.
+\end{itemize}
+In particular, \code{incr} and \code{cmpxchg} must be atomic \emph{with respect to each other},
+meaning that concurrent invocations of either function must not interfere; the result should
+always look as if the threads had performed their actions sequentially instead.
+
+\begin{hint}
+  You may find the notion of a \emph{lock} useful, though it is not required.
+  A lock is an ``object'' that only one process may ``have'' at a time; it can be used to guarantee that even given multiple concurrent threads, only one thread will perform some sensitive operation at a time (such as accessing a ref cell).
+
+  It does so through two operations:
+  \begin{itemize}
+    \item \emph{acquire} which is called to request the lock and stall the thread until it is safe to proceed, and
+    \item \emph{release} which is called afterward, allowing another thread to now proceed.
+  \end{itemize}
+\end{hint}
+\begin{hint}
+  A lock may be implemented easily using the features of Concurrent Algol.
+  Think about how you might use a channel to hold an ``object'' that only one process can have at a time.
+\end{hint}
+
+
+To test your code, you may run the test file \path{tests/atomic-test.lam}.
+
+
+\appendix
+
+\section{Syntax}
+\label{section:concrete-syntax}
+
+Here, we outline the concrete syntax of \LangCA{}.
+\begin{mathpar}
+  \begin{array}{lcclll}
+    \textbf{Sort} &      &     & \textbf{Abstract Syntax}              & \textbf{Concrete Syntax}               & \textbf{Description}              \\
+    \TypeSort     & \tau & ::= & \unittyabt                            & \code{unit}                            & \text{unit type}                  \\
+                  &      &     & \voidtyabt                            & \code{void}                            & \text{void type}                  \\
+                  &      &     & \booltyabt                            & \code{bool}                            & \text{bool type}                  \\
+                  &      &     & \nattyabt                             & \code{nat}                             & \text{natural number}             \\
+                  &      &     & \sumtyabt{\tau_1}{\tau_2}             & \code{tau1 + tau2}                     & \text{sum type}                   \\
+                  &      &     & \prodtyabt{\tau_1}{\tau_2}            & \code{tau1 * tau2}                     & \text{product type}               \\
+                  &      &     & \arrtyabt{\tau_1}{\tau_2}             & \code{tau1 -> tau2}                    & \text{function type}              \\
+                  &      &     & \gcmdtyabt{\tau}                      & \code{cmd[tau]}                        & \text{command}                    \\
+                  &      &     & \chtyabt{\tau}                        & \code{chan[tau]}                       & \text{channel}                    \\
+    \\
+    \ExprSort     & e    & ::= & \unitexabt                            & \code{()}                              & \text{unit}                       \\
+                  &      &     & \inlexabt{\tau_1}{\tau_2}{e}          & \code{inl[tau1 + tau2] e}              & \text{left injection}             \\
+                  &      &     & \inrexabt{\tau_1}{\tau_2}{e}          & \code{inr[tau1 + tau2] e}              & \text{right injection}            \\
+                  &      &     & \caseexabt{e}{x_1}{}{e_1}{x_2}{}{e_2} & \code{case e of \{x1 => e1 | x2 => e2\}} & \text{case expression}            \\
+                  &      &     & \pairexabt{e_1}{e_2}                  & \code{(e1, e2)}                        & \text{pair/tuple}                 \\
+                  &      &     & \splitexabt{e}{x_1}{x_2}{e'}          & \code{split e is x1, x2 in e'}         & \text{split}                      \\
+                  &      &     & \lamabt{x}{\tau}{e}                   & \code{fn (x : tau) => e}               & \text{lambda expression}          \\
+                  &      &     & \funabt{\tau_1}{\tau_2}{f}{x}{e}      & \code{fun f (x : tau1) : tau2 = e}     & \text{function}                   \\
+                  &      &     & \ifexabt{e}{e_1}{e_2}                 & \code{if e then e1 else e2}            & \text{conditional}                \\
+                  &      &     & \ifzabt{\tau}{e}{e_1}{x}{e_2}         & \code{ifz e then e1 else x => e2}      & \text{ifz}                        \\
+                  &      &     & \letbeabt{e}{x}{e_1}                  & \code{let val x = e in e1 end}         & \text{let}                        \\
+                  &      &     & \tcmdabt{\tau}{m}                     & \code{cmd m}                           & \text{encapsulation}              \\
+                  &      &     & \chabt{}{a}                           & \code{chan[a]}                         & \text{channel reference}          \\
+    \\
+    \Sort{Cmd}    & m    & ::= & \retcmdabt{e}                         & \code{ret(e)}                          & \text{return}                     \\
+                  &      &     & \seqcmdabt{e}{x}{m}                   & \code{val x = e in m}                  & \text{sequence}                   \\
+                  &      &     & \spawncmdabt{e}                       & \code{spawn(e)}                        & \text{spawn process}              \\
+                  &      &     & \ssendrefcmdabt{e_1}{e_2}             & \code{emit(e1, e2)}                    & \text{send message on channel}    \\
+                  &      &     & \synccmdabt{e}                        & \code{sync(e)}                         & \text{receive message on channel} \\
+                  &      &     & \newchncmdabt{a}{\tau}{m}             & \code{newchan x ~ tau in c}            & \text{new channel}                \\
+  \end{array}
+\end{mathpar}
+
+We also provide various constant forms, such as $\code{true, false, zero, succ e}$.
+
+Also take note of various pieces of (very helpful) syntactic sugar for writing commands:
+\begin{itemize}
+  \item \code{emit[c](e)} is sugar for \code{emit(chan[c], e)}
+  \item \code{sync[c]} is sugar for \code{sync(chan[c])}
+  \item \code{do e} is sugar for \code{val x = e in ret(x)}
+  \item \code{\{c1,...,cn\}} is sugar for \code{val \_ = cmd(c1) in ... in cn}
+\end{itemize}
+
+\begin{verbatim}
+  directive ::= type t = tau | fun f (x1 : tau1) ... (xn : taun) : tau = term
+    | val x = term | m | c | load f
+  decl d ::= fun f (x1 : tau1) ... (xn : taun) : tau = term | val x = term
+  type tau ::= t | tau1 + tau2 | tau1 * tau2 | tau1 -> tau2 | rec(t.tau)
+    | unit | void | nat | bool | cmd[tau] | chan[tau]
+  cmd c ::= ret(e) | val x = e in c | spawn(e) | emit(e1,e2) | emit[k](e)
+    | sync(e) | sync[k] | newchan x ~ tau in c | print e | do e | {c1,...,cn}
+  atom a ::= (e) | n | '...' | true | false | zero | x | () | (e1,e2)
+    | case e of {x1 => e1 | x2 => e2} | let d1...dn in e end
+    | chan[k]
+  tree s ::= a1 ... an | s1 + s2 | s1 - s2 | s1 * s2 | s1 / s2 | s1 = s2
+    | s1 != s2 | s1 < s2 | s1 <= s2 | s1 > s2 | s1 >= s2 | s1 && s2 | s1 || s2
+  term e ::= s
+    | fn x : tau => e | fn(x : tau) => e | split e is x1, x2 in e' | inl[tau]e | inr[tau]e
+    | fold[tau] e | unfold e | if e then e1 else e2
+    | succ e | ifz e then e1 else x => e2 | abort[tau] e | cmd c | !e
+\end{verbatim}
+
+The parser will delineate directives by ``;''. See \path{tests/tests.lam} for some examples.
+
+
+\section{Statics}\label{sec:statics}
+
+\subsection{Expressions}
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{SE}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jse{\Gamma}{\Sigma}{e}{\tau}$}
+\begin{mathpar}
+  \infern
+  {\jsm{\Gamma}{\Sigma}{m}{\tau}}
+  {\jse{\Gamma}{\Sigma}{\tcmdabt{\tau}{m}}{\gcmdtyabt{\tau}}}
+
+  \infern
+  { }
+  {\jse{\Gamma}{\Sigma, \Has{a}{\tau}}{\chabt{}{a}}{\chtyabt{\tau}}}
+
+\end{mathpar}
+
+
+\subsection{Commands}
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{SM}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jsm{\Gamma}{\Sigma}{m}{\tau}$}
+\begin{mathpar}
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\tau}}
+  {\jsm{\Gamma}{\Sigma}{\retcmdabt{e}}{\tau}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\gcmdtyabt{\tau}} \\
+    \jsm{\Gamma,x:\tau}{\Sigma}{m}{\tau'}
+  }
+  {\jsm{\Gamma}{\Sigma}{\seqcmdabt{e}{x}{m}}{\tau'}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\gcmdtyabt{\tau}}
+  }
+  {\jsm{\Gamma}{\Sigma}{\spawncmdabt{e}}{\chtyabt{\tau}}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e_1}{\chtyabt{\tau}} \\
+    \jse{\Gamma}{\Sigma}{e_2}{\tau}
+  }
+  {\jsm{\Gamma}{\Sigma}{\ssendrefcmdabt{e_1}{e_2}}{\unittyabt}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma}{e}{\chtyabt{\tau}}}
+  {\jsm{\Gamma}{\Sigma}{\synccmdabt{e}}{\tau}}
+
+  \infern
+  {\jsm{\Gamma}{\Sigma,\Has{a}{\tau}}{m}{\tau'}}
+  {\jsm{\Gamma}{\Sigma}{\newchncmdabt{a}{\tau}{m}}{\tau'}}
+\end{mathpar}
+
+
+\subsection{Processes}
+
+\subsubsection{Typing}\label{sec:statics:proc:typing}
+
+The judgment $\jsp{\Sigma}{p}$ describes the valid processes relative to the signature $\Sigma$ and context $\Gamma$. Processes have to be typed under a specific context due to the existence of accepting processes.
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{SP}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jsp{\Sigma}{p}$}
+\begin{mathpar}
+  \infern
+  { }
+  {\jsp{\Sigma}{\stopproccst}}
+
+  \infern
+  {\jsp{\Sigma}{p_1} \\ \jsp{\Sigma}{p_2}}
+  {\jsp{\Sigma}{\concproccst{p_1}{p_2}}}
+
+  \infern
+  {\jsp{\Sigma, \Has{a}{\tau}}{p}}
+  {\jsp{\Sigma}{\tnewproccst{\tau}{a}{p}}}
+
+  \infern
+  {\jsm{\Gamma}{\Sigma, \Has{a}{\tau}}{m}{\tau}}
+  {\jsp{\Sigma, \Has{a}{\tau}}{\atproccst{a}{m}}}
+
+  \infern
+  {\jse{\Gamma}{\Sigma, \Has{a}{\tau}}{e}{\tau}}
+  {\jsp{\Sigma, \Has{a}{\tau}}{\sendproccst{a}{e}}}
+
+  \infern
+  {\jspc{\Gamma, x : \tau}{\Sigma, \Has{a}{\tau}}{p} }
+  {\jsp{\Sigma, \Has{a}{\tau}}{\recvproccst{a}{x}{p}} }
+\end{mathpar}
+
+\subsubsection{Structural Congruence}\label{sec:statics:proc:cong}
+
+Processes are identified up to structural congruence, an equivalence relation written $\jspeq{p_1}{p_2}$.
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{E}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jspeq{p_1}{p_2}$}
+
+First, we state that $\jspeq{p_1}{p_2}$ is an equivalence relation (reflexive, symmetric, and transitive):
+\begin{mathpar}
+  \infern
+  {\AlphaEq{p_1}{p_2}}
+  {\jspeq{p_1}{p_2}}
+  \and
+  \infern
+  {\jspeq{p_2}{p_1}}
+  {\jspeq{p_1}{p_2}}
+  \and
+  \infern
+  {\jspeq{p_1}{p_2} \\ \jspeq{p_2}{p_3}}
+  {\jspeq{p_1}{p_3}}
+\end{mathpar}
+Then, we state that $\jspeq{p_1}{p_2}$ is a congruence:
+\begin{mathpar}
+  \infern
+  {\jspeq{p_1}{p_1'} \\ \jspeq{p_2}{p_2'}}
+  {\jspeq{\concproccst{p_1}{p_2}}{\concproccst{p_1'}{p_2'}}}
+  \and
+  \infern
+  {\jspeq{p}{p'}}
+  {\jspeq{\tnewproccst{\tau}{a}{p}}{\tnewproccst{\tau}{a}{p'}}}
+  \and
+  \infern
+  {\jspeq{p}{p'}}
+  {\jspeq{\recvproccst{a}{x}{p}}{\recvproccst{a}{x}{p'}}}
+\end{mathpar}
+
+We guarantee that $\stopproccst$ and $\concproccst{-}{-}$ form a commutative monoid:
+\begin{mathpar}
+  \infern
+  {\strut}
+  {\jspeq{\concproccst{p_1}{(\concproccst{p_2}{p_3})}}{\concproccst{(\concproccst{p_1}{p_2})}{p_3}}}
+  \and
+  \infern
+  {\strut}
+  {\jspeq{\concproccst{p}{\stopproccst}}{p}}
+  \and
+  \infern
+  {\strut}
+  {\jspeq{\concproccst{p_1}{p_2}}{\concproccst{p_2}{p_1}}}
+\end{mathpar}
+
+We allow new channels to be reordered, removed if unused, and hoisted to the top level provided they do not incur capture.
+Rule E$_{12}$ is called \emph{scope extrusion}, since it allows the scope of $a$ to be extruded out of the concurrent composition.
+\begin{mathpar}
+  \infern
+  {a_1 \ne a_2}
+  {\jspeq{\tnewproccst{\tau_1}{a_1}{\tnewproccst{\tau_2}{a_2}{p}}}{\tnewproccst{\tau_2}{a_2}{\tnewproccst{\tau_1}{a_1}{p}}}}
+  \and
+  \infern
+  {a \notin p}
+  {\jspeq{\tnewproccst{\tau}{a}{p}}{p}}
+  \and
+  \infern
+  {a \notin p_2}
+  {\jspeq{\concproccst{(\tnewproccst{\tau}{a}{p_1})}{p_2}}{\tnewproccst{\tau}{a}{(\concproccst{p_1}{p_2})}}}
+  \and
+  \infern
+  {a_1 \ne a_2}
+  {\jspeq{\recvproccst{a_2}{x}{\tnewproccst{\tau}{a_1}{p}}}
+    {\tnewproccst{\tau}{a_1}{\recvproccst{a_2}{x}{p}}}}
+\end{mathpar}
+
+
+\subsection{Actions}
+
+Actions also admit a statics, given by the judgment $\actionabt{\alpha}{\Sigma}$.
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{A}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\actionabt{\alpha}{\Sigma}$}
+\begin{mathpar}
+  \infern{ }{\actionabt{\silactcst}{\Sigma}}
+  \and
+  \infern{
+    \jse{}{\Sigma, \Has{a}{\tau}}{e}{\tau}
+  }{\actionabt{\tsndactcst{}{a}{e}}{\Sigma, \Has{a}{\tau}}}
+  \and
+  \infern{
+    \jse{}{\Sigma, \Has{a}{\tau}}{e}{\tau}
+  }{\actionabt{\trcvactcst{}{a}{e}}{\Sigma, \Has{a}{\tau}}}
+
+\end{mathpar}
+
+
+\section{Dynamics}\label{sec:dynamics}
+
+
+\subsection{Expressions}
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{V}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jeval{e}{\Sigma}$}
+\begin{mathpar}
+  \infern
+  { }
+  {\jeval{\chabt{}{a}}{\Sigma,\Has{a}{\tau}}}
+  \and
+  \infern
+  { }
+  {\jeval{\tcmdabt{\tau}{m}}{\Sigma}}
+\end{mathpar}
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{D}_{\arabic{infercount}}\stepcounter{infercount})}
+\renewcommand{\axiomn}[1]{\infern{ }{#1}}
+
+
+\subsection{Commands}
+
+\fbox{$\jmstepp{m}{}{\Sigma}{m'}$}
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{M}_{\arabic{infercount}}\stepcounter{infercount})}
+\renewcommand{\axiomn}[1]{\infern{ }{#1}}
+\begin{mathpar}
+  \infern
+  {\jestep{e}{\Sigma}{e'}}
+  {\jmstepp{\retcmdabt{e}}{}{\Sigma}{\retcmdabt{e'}}}
+  \and
+  \infern
+  {\jestep{e}{\Sigma}{e'}}
+  {\jmstepp{\seqcmdabt{e}{x}{m}}{}{\Sigma}{\seqcmdabt{e'}{x}{m}}}
+  %\and
+  %\infern
+  %{\jeval{e}{\Sigma}}
+  %{\jmstepp{\seqcmdabt{\cmdabt{\retcmdabt{e}}}{x}{m}}{\anone}{\Sigma}{\Subst{e}{x}{m}}}
+  %\and
+  %\infern
+  %{\jmstepp{m_1}{\alpha}{\Sigma}{m_1'}}
+  %{\jmstepp{\seqcmdabt{\cmdabt{m_1}}{x}{m_2}}{\alpha}{\Sigma}{\seqcmdabt{\cmdabt{m_1'}}{x}{m_2}}}
+  \and
+  \infern
+  {\jestep{e}{\Sigma}{e'}}
+  {\jmstepp{\spawncmdabt{e}}{}{\Sigma}{\spawncmdabt{e'}}}
+  \and
+  \infern
+  {\jestep{e_1}{\Sigma}{e_1'}}
+  {\jmstepp{\ssendrefcmdabt{e_1}{e_2}}{}{\Sigma}{\ssendrefcmdabt{e_1'}{e_2}}}
+  \and
+  \infern
+  {\jeval{e_1}{\Sigma} \\ \jestep{e_2}{\Sigma}{e_2'}}
+  {\jmstepp{\ssendrefcmdabt{e_1}{e_2}}{}{\Sigma}{\ssendrefcmdabt{e_1}{e_2'}}}
+  \and
+  \infern
+  {\jestep{e}{\Sigma}{e'}}
+  {\jmstepp{\synccmdabt{e}}{}{\Sigma}{\synccmdabt{e'}}}
+  %\and
+  %\infern
+  %{\jeval{e}{\Sigma} \\ \jestepm{e}{\alpha}{\Sigma}{m}}
+  %{\jmstepp{\synccmdabt{e}}{\alpha}{\Sigma}{m}}
+\end{mathpar}
+
+\subsection{Processes}\label{sec:dynamics:procs}
+
+In this formulation of Concurrent Algol, there is no command level transitions for the effects.
+It does \textbf{not} follow that our language is free of effects, instead all effects have
+been lifted into process level and carried out at process level.
+The rules for transitioning processes that does not involve lifting effects from commands are given in \cref{sec:procs:dynamics}.
+
+Rule P$_1$, together with congruence, allows for independent transition of both concurrent sub-processes.
+P$_2$ enables communications between concurrent processes.
+
+Finally, we may now consider the actions and effects of the commands:
+
+\setcounter{infercount}{1}
+\renewcommand{\infern}[2]{\inferrule{#1}{#2}(\text{R}_{\arabic{infercount}}\stepcounter{infercount})}
+\fbox{$\jpstepp{p}{\alpha}{\Sigma}{p'}$, continued}
+\begin{mathpar}
+  \infern{
+    \jmstepp{m}{}{\Sigma}{m'}
+  }{\jpstepp{\atproccst{a}{m}}{\silactcst}{\Sigma}{\atproccst{a}{m'}}}
+
+  \infern{
+    \jeval{e}{\Sigma, \Has{a}{\tau}}
+  }{\jpstepp{\atproccst{a}{\retcmdabt{e}}}{\silactcst}{\Sigma, \Has{a}{\tau}}{\sendproccst{a}{e}}}
+
+  \infern
+  {    }
+  { \jpstepp{\atproccst{a}{\seqcmdabt{\tcmdabt{\tau'}{m_1}}{x}{m_2}}}
+    {\silactcst}{\Sigma, \Has{a}{\tau}}
+    {\tnewproccst{\tau'}{b}{\concproccst{\atproccst{b}{m_1}}{\recvproccst{b}{x}{\atproccst{a}{m_2}}}}
+    }}
+
+  \infern
+  {  }
+  { \jpstepp{\atproccst{a}{\spawncmdabt{\tcmdabt{\tau}{m}}}}
+    {\silactcst}{\Sigma, \Has{a}{\chtyabt{\tau}}}
+    {\tnewproccst{\tau}{b}{\concproccst{\atproccst{b}{m}}{\atproccst{a}{\retcmdabt{\chabt{}{b}}}}} }}
+
+  \infern
+  { \jeval{e}{\Sigma, \Has{a}{\unittyabt}, \Has{b}{\tau}} }
+  { \jpstepp{\atproccst{a}{\ssendrefcmdabt{\chabt{}{b}}{e}} }
+    {\silactcst}{\Sigma, \Has{a}{\unittyabt}, \Has{b}{\tau}}
+    {\concproccst{\sendproccst{b}{e}}{\atproccst{a}{\retcmdabt{\unitexcst}}}}}
+
+  \infern
+  {  }
+  { \jpstepp{\atproccst{a}{\synccmdabt{\chabt{}{b}}}}
+    {\silactcst}{\Sigma, \Has{a}{\tau}, \Has{b}{\tau}}
+    {\recvproccst{b}{x}{\atproccst{a}{\retcmdabt{x}}}}}
+
+  \infern
+  { }
+  { \jpstepp{\atproccst{a}{\newchncmdabt{b}{\tau}{m}} }
+    {\silactcst}{\Sigma, \Has{a}{\tau}}
+    {\tnewproccst{\tau}{b}{\atproccst{a}{m}}}}
+\end{mathpar}
+
+In our setup, all command level effects have been elevated to the process level. In
+particular, a sequence of two commands is achieved by spawning a process for each of
+the commands, and have the second process wait for the result from the first one on
+a secret channel. Type annotation makes it possible to figure out the type $\tau$
+and $\tau'$ in R$_4$ and R$_3$ respectively. Notice that the emit commands generates new processes. This should
+remind you that we are implementing asynchronous sends.
+
+
+\ifthenelse{\value{taskPercentCounter} = 200}
+{\typeout{GOOD: Points add up to 200}}
+{\typeout{ERROR: Points add up to \arabic{taskPercentCounter}
+    which is not 200}}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

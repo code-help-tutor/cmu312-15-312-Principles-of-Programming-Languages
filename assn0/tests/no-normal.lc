@@ -1,0 +1,4 @@
+def nonormal = todo;
+
+# Attempting to normalize nonorm should loop forever!
+print norm nonormal;

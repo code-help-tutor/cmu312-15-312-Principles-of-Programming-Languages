@@ -1,0 +1,13 @@
+Library
+  signature FPC
+  structure FPC
+
+  library(../var/var.cm)
+is
+  ../cmlib/cmlib.cm
+  ../var/var.cm
+  ../abt/abt.cm
+
+  fpc.abt.sig
+  fpc.abt.fun
+  fpc.abt.sml

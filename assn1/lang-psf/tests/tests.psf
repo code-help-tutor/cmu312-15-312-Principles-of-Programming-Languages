@@ -1,0 +1,17 @@
+fn (x : unit) => x;
+
+fn (f : unit -> unit + unit) => f <>;
+
+<<>, <<>, <>>>;
+
+<(fn (x : unit) => <x, x>) <>, in[r]{void, unit}(<>)>.r;
+
+(* boolean negation function *)
+fn (bool : unit + unit) =>
+  case[unit + unit] bool {
+  | l.x => in[r]{unit, unit}(<>)
+  | r.x => in[l]{unit, unit}(<>)
+  }
+;
+
+fn (x : unit * void) => case[unit + unit] x.r {};

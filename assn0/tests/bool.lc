@@ -1,0 +1,10 @@
+def true  = λt. λf. t;
+def false = λt. λf. f;
+def if    = λM. λM1. λM0. M M1 M0;
+
+# test cases
+print! if true x1 x0;
+print! if false x1 x0;
+
+def not = λb. if b false true;
+print! not true;

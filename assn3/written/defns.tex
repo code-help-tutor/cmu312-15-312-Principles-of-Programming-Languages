@@ -1,0 +1,81 @@
+\newcommand{\LangPyCF}{\Lang{PyCF}}
+\newcommand{\Steps}[2]{\ensuremath{{#1} \StepsTo {#2}}}
+
+
+% FPC Trees
+
+\newcommand{\Elbl}{\kw{E}}
+\newcommand{\Nlbl}{\kw{N}}
+\newcommand{\Fld}[2]{#1\hookrightarrow #2}
+\newcommand{\fld}[2]{#1\cdot #2}
+\newcommand{\triptycst}[3]{{#1}\times{#2}\times{#3}}
+\newcommand{\tripexcst}[3]{\langle #1, #2, #3\rangle}
+\newcommand{\EmpVal}{\kw{Emp}}
+\newcommand{\NodeVal}[3]{\kw{Node}(#1,#2,#3)}
+
+\newcommand{\Trecabt}[4]{\OpABTp{\kw{Trec}}{#1}{#2;\AbsABT{#3}{#4}}}
+
+\newcommand{\Tgenabt}[4]{\OpABTp{\kw{Tgen}}{#1}{#2; \AbsABT{#3}{#4}}}
+\newcommand{\Tcaseexcst}[6]{\kwop{case}{#1}\,\cdbraces{\fld{\Elbl}{\_}\casebrcst{#2}\casesepcst \fld{\Nlbl}{\tripexcst{#3}{#4}{#5}}\casebrcst #6}}
+
+
+% PyCF
+
+\newcommand{\dbooltag}{\kw{bool}}
+\newcommand{\dinttag}{\kw{int}}
+\newcommand{\dlisttag}{\kw{list}}
+\renewcommand{\dfuntag}{\kw{fun}}
+
+\newcommand{\dboolabt}[1]{\OpInst{\kw{bool}}{#1}}
+\newcommand{\dboolcst}[1]{#1}
+\renewcommand{\difabt}[3]{\OpABT{\kw{if}}{#1;#2;#3}}
+\renewcommand{\difcst}[3]{{#2}\,\kw{if}\,{#1}\kwop{else}{#3}}
+\newcommand{\dintabt}[1]{\OpInst{\kw{int}}{#1}}
+\newcommand{\dintcst}[1]{#1}
+\newcommand{\dplusabt}[2]{\OpABT{\kw{plus}}{#1;#2}}
+\newcommand{\dpluscst}[2]{{#1}\,\texttt{+}\,{#2}}
+\newcommand{\dleqabt}[2]{\OpABT{\kw{leq}}{#1;#2}}
+\newcommand{\dleqcst}[2]{{#1}\,\texttt{<=}\,{#2}}
+\newcommand{\dlistabt}[1]{\OpABT{\kw{list}}{#1}}
+\newcommand{\dlistcst}[1]{\texttt{[}{#1}\texttt{]}}
+\newcommand{\dindexabt}[2]{\OpABT{\kw{index}}{#1;#2}}
+\newcommand{\dindexcst}[2]{{#1}\texttt{[}{#2}\texttt{]}}
+\newcommand{\dlenabt}[1]{\OpABT{\kw{len}}{#1}}
+\newcommand{\dlencst}[1]{\texttt{len(}{#1}\texttt{)}}
+\renewcommand{\dfunabt}[3]{\OpABT{\kw{fun}}{\AbsABT{#1}{\AbsABT{#2}{#3}}}}
+% \newcommand{\dfuncst}  % omitted, since declaration
+\newcommand{\dletabt}[3]{\OpABT{\kw{let}}{{#1}; \AbsABT{#2}{#3}}}
+% \newcommand{\dletcst}  % omitted, since declaration
+\newcommand{\disinstanceabt}[2]{\OpABT{\OpInst{\kw{isinstance}}{#2}}{#1}}
+\newcommand{\disinstancecst}[2]{\texttt{isinstance(}{#1}\texttt{, }{#2}\texttt{)}}
+
+\newcommand{\Ok}{\mathsf{ok}}
+\newcommand{\DIsnt}[2]{\ensuremath{\JInfix{#1}{\mathsf{isnt}}{#2}}}
+
+
+% FPC Syntax
+
+\newcommand{\errorexabt}[1]{\kw{error}\cdsqbracks{#1}}
+\newcommand{\errorexcst}[1]{\errorexabt{#1}}
+\newcommand{\intexabt}[1]{\OpInst{\kw{int}}{#1}}
+\newcommand{\intexcst}[1]{#1}
+\newcommand{\plusexabt}[2]{\OpABT{\kw{plus}}{#1;#2}}
+\newcommand{\plusexcst}[2]{{#1}\,\texttt{+}\,{#2}}
+\newcommand{\leqexabt}[2]{\OpABT{\kw{leq}}{#1;#2}}
+\newcommand{\leqexcst}[2]{{#1}\,\texttt{<=}\,{#2}}
+\newcommand{\listexabt}[1]{\OpABT{\kw{list}}{#1}}
+\newcommand{\listexcst}[1]{\texttt{[}{#1}\texttt{]}}
+\newcommand{\appendexabt}[2]{\OpABT{\kw{append}}{#1;#2}}
+\newcommand{\appendexcst}[2]{{#1}\,\texttt{@}\,{#2}}
+\newcommand{\indexexabt}[2]{\OpABT{\kw{index}}{#1;#2}}
+\newcommand{\indexexcst}[2]{{#1}\texttt{[}{#2}\texttt{]}}
+\newcommand{\lenexabt}[1]{\OpABT{\kw{len}}{#1}}
+\newcommand{\lenexcst}[1]{\texttt{len(}{#1}\texttt{)}}
+
+
+% PyCF to FPC Translation
+
+\newcommand{\dynviewtyabt}[1]{\kw{dynview}[#1]}
+\newcommand{\dynviewtycst}[1]{\dynviewtyabt{#1}}
+
+\newcommand{\Translate}[1]{\overline{#1}}

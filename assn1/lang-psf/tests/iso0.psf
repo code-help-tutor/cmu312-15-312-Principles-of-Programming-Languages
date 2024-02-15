@@ -1,0 +1,4 @@
+(* The functions are mutually inverse, since they each simply swap the elements of the pair. *)
+
+fn (x : A * B) => <x.r, x.l>;
+fn (x : B * A) => <x.r, x.l>;

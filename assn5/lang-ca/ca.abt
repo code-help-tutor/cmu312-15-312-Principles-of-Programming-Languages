@@ -1,0 +1,53 @@
+symbol chan
+
+abt int
+abt string
+abt bool
+abt oper
+
+sort typ =
+| Nat
+| Bool
+| Unit
+| Void
+| String
+| Arr   of typ * typ
+| Star  of typ * typ
+| Sum   of typ * typ
+| Rec   of typ binding . typ
+| Cmd   of typ
+| Chan  of typ
+
+sort exp =
+| String of string
+| Num    of int
+| Succ   of exp
+| Ifz    of exp * exp * (exp binding. exp)
+| Bool   of bool
+| Negate of exp
+| If     of exp * (exp * exp)
+| Binop  of oper * exp * exp
+| Fun of (typ * typ) * ((exp binding * exp binding) . exp)
+| Lam    of typ * (exp binding. exp)
+| App    of exp * exp
+| Let    of exp * (exp binding. exp)
+| Triv
+| Pair   of exp * exp
+| Split of exp * ((exp binding * exp binding) . exp)
+| Inl    of typ * exp
+| Inr    of typ * exp
+| Case   of exp * (exp binding. exp) * (exp binding. exp)
+| Abort  of typ * exp
+| Fold   of typ * exp
+| Unfold of exp
+| Cmd    of cmd
+| ChnRef of chan
+
+sort cmd =
+| Ret     of exp
+| Bind    of exp * (exp binding. cmd)
+| Spawn   of exp
+| Emit    of exp * exp
+| Sync    of exp
+| NewChn  of typ * (chan binding. cmd)
+| Print   of exp

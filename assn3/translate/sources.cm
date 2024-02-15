@@ -1,0 +1,29 @@
+Library
+  library(../lang-pycf/sources.cm)
+  library(../lang-fpc/sources.cm)
+
+  signature SYN_EXT
+  structure SynExtHelpers
+  structure SynExt
+
+  signature TRANSLATE
+  functor Translate
+  structure Translate
+
+  structure InterpreterTranslate
+is
+  ../cmlib/cmlib.cm
+  ../core/core.cm
+
+  ../lang-pycf/sources.cm
+  ../lang-fpc/sources.cm
+
+  synext.sig
+  synext-helpers.sml
+  synext.sml
+
+  translate.sig
+  translate.fun
+  translate.sml
+
+  interpreter-translate.sml

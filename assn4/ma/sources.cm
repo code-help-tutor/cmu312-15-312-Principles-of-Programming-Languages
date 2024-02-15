@@ -1,0 +1,40 @@
+Library
+  library(abt.cm)
+
+  signature CONTEXT_MA
+  structure ContextMA
+  signature STATICS_MA
+  structure StaticsMA
+
+  structure DynamicsMA
+
+  functor Parser
+  structure InterpreterMA
+
+  source(-)
+  library(../cmlib/cmlib.cm)
+  library(../core/core.cm)
+  library(parser/parser.cm)
+
+is
+  abt.cm
+  ../cmlib/cmlib.cm
+  ../core/core.cm
+
+  context-ma.sig
+  context-ma.sml
+  statics-ma.sig
+  statics-ma.sml
+
+  parser/desugar.sml
+
+  state-ma-exp.sml
+  dynamics-ma-exp.sml
+
+  state-ma.sml
+  dynamics-ma-error.sml
+  dynamics-ma.sml
+
+  interpreter-ma.fun
+  interpreter-ma.sml
+  parser/parser.cm

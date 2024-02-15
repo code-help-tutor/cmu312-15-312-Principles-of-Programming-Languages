@@ -1,0 +1,27 @@
+load "prng.lam";
+
+fun test_prng (mod : nat) (seed : nat) (iters : nat) : cmd[unit] = cmd({
+  print 'Testing PRNG with mod ', print mod, print ' and seed ', print seed,
+  print ' for ', print iters, print ' iterations:\n',
+  val prng = newprng mod seed in do(
+    let
+      fun loop (expected : nat) (iters : nat) : cmd[unit] =
+        ifz iters then cmd(ret(())) else iters' => cmd(
+          val got = next prng in {
+            do(
+              if got = expected
+              then cmd({print 'Correctly got ', print got, print '\n',
+                        do(loop (expected * expected % mod) iters')})
+              else cmd({print 'PRNG test failed, expected ', print expected,
+                        print ' but got ', print got, print '\n'})
+            )
+          }
+        )
+    in
+      loop seed iters
+    end
+  )
+});
+
+do(test_prng 77 5 20);
+do(test_prng 253 3 20);

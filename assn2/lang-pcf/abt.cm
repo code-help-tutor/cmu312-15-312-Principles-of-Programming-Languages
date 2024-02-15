@@ -1,0 +1,12 @@
+Library
+  signature PCF
+  structure PCF
+
+  library(../var/var.cm)
+is
+  ../cmlib/cmlib.cm
+  ../var/var.cm
+  ../abt/abt.cm
+
+  pcf.abt.sig
+  pcf.abt.sml

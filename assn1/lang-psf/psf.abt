@@ -1,0 +1,21 @@
+abt typ =
+| Arrow of typ * typ
+| Unit
+| Prod of typ * typ
+| Void
+| Sum of typ * typ
+| A
+| B
+| C
+
+sort exp =
+| Lam of typ * (exp binding . exp)
+| Ap of exp * exp
+| Triv
+| Pair of exp * exp
+| PrL of exp
+| PrR of exp
+| Abort of typ * exp
+| InL of (typ * typ) * exp
+| InR of (typ * typ) * exp
+| Case of typ * exp * (exp binding . exp) * (exp binding . exp)

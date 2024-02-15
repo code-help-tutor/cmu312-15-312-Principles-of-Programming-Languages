@@ -1,0 +1,11 @@
+# The Y combinator!
+Y = lambda f: (lambda x: f(lambda y: x(x)(y)))(lambda x: f(lambda y: x(x)(y)))
+
+# Doubling function.
+double = lambda x: x + x
+
+# Exponentiation by 2, using `Y`.
+exp2 = Y(lambda f: lambda x: 1 if x <= 0 else double(f(x + -1)))
+
+if __name__ == "__main__":
+    print(exp2(6))

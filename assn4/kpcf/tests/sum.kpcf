@@ -1,0 +1,5 @@
+let t1 =
+  case L[unit, nat].<>   { L.x => s(z) | R.y => y } in
+let t2 =
+  case R[unit, nat].s(z) { L.x => z    | R.y => s(s(y)) } in
+<t1, t2>

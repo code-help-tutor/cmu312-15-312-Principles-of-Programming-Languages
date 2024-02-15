@@ -1,0 +1,10 @@
+abt typ =
+| Nat
+| Arrow of typ * typ
+
+sort exp =
+| Zero
+| Succ of exp
+| Ifz of exp * exp * (exp binding . exp)
+| Fun of (typ * typ) * (exp binding . exp binding . exp)
+| Ap of exp * exp

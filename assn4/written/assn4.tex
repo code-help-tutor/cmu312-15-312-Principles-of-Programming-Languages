@@ -1,0 +1,1674 @@
+\documentclass[11pt]{article}
+\usepackage{adjustbox}
+\usepackage{array}
+\usepackage{scrextend}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\newcolumntype{L}{>{$}l<{$}} % math-mode version of "l" column type
+
+\usepackage{chngcntr}
+\counterwithin{figure}{section}
+
+\input{setup}
+\input{setup-assn4}
+
+\input{defs}
+\input{issolution}
+
+\newcounter{infercount}
+\setcounter{infercount}{1}
+\newcommand{\infern}[2]{\inferrule{#1}{#2}(D_{\arabic{infercount}}\stepcounter{infercount})}
+\newcommand{\axiomn}[1]{\infern{\strut}{#1}}
+\newcommand{\axiom}[1]{\inferrule{\strut}{#1}}
+
+\title{Assignment 4: \\
+       Effects: Control and Storage}
+
+\begin{document}
+
+\maketitle
+
+This assignment will familiarize you with \emph{effects} that are widely present in programming language.
+\emph{Effects}, or \emph{side effects} are umbrella terms used to describe any computational phenomenon that is
+not fully captured in the return value of an expression. Common examples of effects includes \emph{control effects},
+present in its full form as \emph{continuations}, and \emph{storage evaluation} pertaining to mutation in some
+form of storage.
+
+We will consider to extensions to the rich expression language that we have developed.
+
+The first extension, called \LangKPCF{}, introduces the explicit manipulation of continuations.
+For ease and concision of specification and implementation, we will use \LangKPCFv{}, a presentation of \LangKPCF{} that uses a modal separation to distinguish \emph{values} and \emph{computations}.
+Code you write in \LangKPCF{} will be elaborated to \LangKPCFv{}.
+
+The second extension, called \LangMA{}, adds constructs for storage effects.
+Again, we will work with a modally-separated presentation, for meta-theoretic and implementation purposes.
+This will help us to distinguish \emph{expression} and \emph{commands}. The latter are ``instructions'' that
+operates on the store.
+
+Make sure to start early and to understand the statics and dynamics of the
+new languages. There will be plenty of code to write, so don't delay!
+
+\subsection*{Submission}
+
+As usual, please submit the written part of this homework as a
+PDF file to Gradescope. To submit the implementation part, submit a
+zipfile to Gradescope. To create the zipfile, use the Makefile supplied in the
+handout. It will ensure that all the relevant files are handed in.
+
+\subsection*{Reference Implementation}
+
+As always, we have included the solution to this assignment as a binary heap image.
+You can load it into SML/NJ by passing in the \code{@SMLload} flag.
+Your solutions should behave just like ours.
+
+
+\section{\LangKPCF{}}
+
+In this section, we will work with \LangKPCF{}, an extension of \LangPCF{} with continuations.
+To simplify the specification and implementation, though, we will consider \LangKPCFv{}, a presentation of \LangKPCF{} that uses a modal separation to distinguish \emph{values} and \emph{computations}.
+You will be able to write code in \LangKPCF{} directly, though, which will be elaborated to \LangKPCFv{}.
+There is no conceptual difference between continuations in \LangKPCFv{} and \LangKPCF{}.
+
+\subsection{\LangKPCF{}}\label{sec:kpcf}
+
+We give the grammar of \LangKPCF{} in \Cref{fig:kpcf}.
+
+\begin{figure}
+  \begin{adjustbox}{tabular=LLLLLL,center}
+    \TypeSort & \tau & \Coloneqq & \conttyabt{\tau}           & \conttycst{\tau}           & \code{cont[tau]} \\
+              &      &           & \unittyabt                 & \unittycst                 & \code{unit} \\
+              &      &           & \prodtyabt{\tau_1}{\tau_2} & \prodtycst{\tau_1}{\tau_2} & \code{tau1 * tau2} \\
+              &      &           & \voidtyabt                 & \voidtycst                 & \code{void} \\
+              &      &           & \sumtyabt{\tau_1}{\tau_2}  & \sumtycst{\tau_1}{\tau_2}  & \code{tau1 + tau2} \\
+              &      &           & \parrtyabt{\tau_1}{\tau_2} & \parrtycst{\tau_1}{\tau_2} & \code{tau1 -> tau2} \\
+              &      &           & \nattyabt                  & \nattycst                  & \code{nat} \\
+              &      &           & \alpha,~\beta,~\dots       & \alpha,~\beta,~\dots       & \code{A}, \code{B}, \dots \\
+    \ExprSort & e    & \Coloneqq & x                                     & x                                     & \code{x}  \\
+              &      &           & \letbeabt{e_1}{x}{e_2}                & \letbecst{e_1}{x}{e_2}                & \code{let x = e1 in e2} \\
+              &      &           & \letccabt{\tau}{x}{e}                 & \letcccst{x}{e}                       & \code{letcc[tau] x in e} \\
+              &      &           & \throwabt{\tau}{e}{e_1}               & \throwcst{\tau}{e_1}{e}               & \code{throw[tau](e, e1)} \\
+              &      &           & \unitexabt                            & \unitexcst                            & \code{<>} \\
+              &      &           & \pairexabt{e_1}{e_2}                  & \pairexcst{e_1}{e_2}                  & \code{<e1, e2>} \\
+              &      &           & \splitexabt{e}{x_1}{x_2}{e'}          & \splitexcst{e}{x_1}{x_2}{e'}          & \code{split e is x1, x2 in e'} \\
+              &      &           & \abortexabt{\tau}{e}                  & \abortexcst{\tau}{e}                  & \code{case[tau] e \{\}} \\
+              &      &           & \inlexabt{\tau_1}{\tau_2}{e}          & \inlexcst{}{e}                        & \code{L[tau1, tau2].e} \\
+              &      &           & \inrexabt{\tau_1}{\tau_2}{e}          & \inrexcst{}{e}                        & \code{R[tau1, tau2].e} \\
+              &      &           & \caseexabt{e}{x_1}{}{e_1}{x_2}{}{e_2} & \caseexcst{e}{x_1}{}{e_1}{x_2}{}{e_2} & \code{case e \{ L.x1 => e1 | R.x2 => e2 \}} \\
+              &      &           & \funabt{\tau_1}{\tau_2}{f}{x}{e}      & \funcst{\tau_1}{\tau_2}{f}{x}{e}      & \code{fun f (x : tau1) \ : tau2 is e} \\
+              &      &           & \lamabt{\tau}{x}{e}                   & \lamcst{\tau}{x}{e}                   & \code{fn (x : tau) \ => e} \\
+              &      &           & \appabt{e}{e_1}                       & \appcst{e}{e_1}                       & \code{e e1} \\
+              &      &           & \zeroabt                              & \zerocst                              & \code{z} \\
+              &      &           & \succabt{e}                           & \succcst{e}                           & \code{s(e)} \\
+              &      &           & \ifzabt{e}{e_0}{x}{e_1}               & \ifzcst{e}{e_0}{x}{e_1}               & \code{ifz e \{ z => e0 | s(x) \ => e1 \}}
+  \end{adjustbox}
+  \caption{\LangKPCF{} Grammar}
+  \label{fig:kpcf}
+\end{figure}
+
+Rather than give a statics and dynamics for \LangKPCF{}, we will first elaborate to \LangKPCFv{}, which we will henceforth define.
+
+\subsection{\LangKPCFv{}}
+
+First, we define the syntax of \LangKPCFv{} in \Cref{fig:kpcfv}.
+As described, we draw a syntactic distinction between values $v$ and computations $e$;
+this leads us to include a few new constructs:
+\begin{itemize}
+  \item Expression $\retabt{v}$ treats a value as a trivial computation.
+  \item Type $\comptyabt{\tau}$ describes computations of type $\tau$.
+  \item Value $\compabt{e}$ suspends a computation.
+  \item Expression $\bindabt{v}{x}{e}$ evaluates a suspended computation $v$, binding the resulting value to $x$ in $e$.
+\end{itemize}
+
+We also include internal forms (i.e., forms which cannot be written by programmers), such as stacks $k$, reified stacks $\contexabt{k}$, and evaluation states $s$.
+
+\begin{figure}
+  \begin{adjustbox}{tabular=LLLLLl,center}
+    \TypeSort & \tau & \Coloneqq & \comptyabt{\tau}           & \comptycst{\tau}           & computation \\
+              &      &           & \conttyabt{\tau}           & \conttycst{\tau}           & continuation \\
+              &      &           & \unittyabt                 & \unittycst                 & unit \\
+              &      &           & \prodtyabt{\tau_1}{\tau_2} & \prodtycst{\tau_1}{\tau_2} & product \\
+              &      &           & \voidtyabt                 & \voidtycst                 & void \\
+              &      &           & \sumtyabt{\tau_1}{\tau_2}  & \sumtycst{\tau_1}{\tau_2}  & sum \\
+              &      &           & \parrtyabt{\tau_1}{\tau_2} & \parrtycst{\tau_1}{\tau_2} & partial function \\
+              &      &           & \nattyabt                  & \nattycst                  & natural number \\
+              &      &           & \alpha,~\beta,~\dots       & \alpha,~\beta,~\dots       & type variable \\
+    \StackSort & k & \Coloneqq & & \EmptyStack          & empty stack \\
+              &   &           & & \StackFrame{k}{x}{e} & stack frame \\
+    \ValueSort & v & \Coloneqq & x                                & x                                & variable  \\
+              &   &           & \compabt{e}                      & \compcst{e}                      & suspended computation \\
+              &   &           & \contexabt{k}                    & \contexcst{k}                    & reified stack \\
+              &   &           & \unitexabt                       & \unitexcst                       & unit value \\
+              &   &           & \pairexabt{v_1}{v_2}             & \pairexcst{v_1}{v_2}             & pair value \\
+              &   &           & \inlexabt{\tau_1}{\tau_2}{v}     & \inlexcst{}{v}                   & left injection \\
+              &   &           & \inrexabt{\tau_1}{\tau_2}{v}     & \inrexcst{}{v}                   & right injection \\
+              &   &           & \funabt{\tau_1}{\tau_2}{f}{x}{e} & \funcst{\tau_1}{\tau_2}{f}{x}{e} & recursive function \\
+              &   &           & \lamabt{\tau}{x}{e}              & \lamcst{\tau}{x}{e}              & non-recursive function \\
+              &   &           & \zeroabt                         & \zerocst                         & zero \\
+              &   &           & \succabt{v}                      & \succcst{v}                      & successor \\
+    \ExprSort & e & \Coloneqq & \retabt{v}                            & \retcst{v}                            & trivial computation  \\
+              &   &           & \bindabt{v}{x}{e}                     & \bindcst{v}{x}{e}                     & sequential evaluation \\
+              &   &           & \letccabt{\tau}{x}{e}                 & \letcccst{x}{e}                       & bind current continuation \\
+              &   &           & \throwabt{\tau}{v}{v_1}               & \throwcst{\tau}{v_1}{v}               & throw to a continuation \\
+              &   &           & \splitexabt{v}{x_1}{x_2}{e'}          & \splitexcst{v}{x_1}{x_2}{e'}          & pair split \\
+              &   &           & \abortexabt{\tau}{v}                  & \abortexcst{\tau}{v}                  & nullary case analysis \\
+              &   &           & \caseexabt{v}{x_1}{}{e_1}{x_2}{}{e_2} & \caseexcst{v}{x_1}{}{e_1}{x_2}{}{e_2} & binary case analysis \\
+              &   &           & \appabt{v}{v_1}                       & \appcst{v}{v_1}                       & function application \\
+              &   &           & \ifzabt{v}{e_0}{x}{e_1}               & \ifzcst{v}{e_0}{x}{e_1}               & zero test \\
+    \StateSort & s & \Coloneqq & & \CEval{k}{e} & evaluating $e$ for stack $k$ \\
+              &   &           & & \CRet{k}{v}  & returning $v$ to stack $k$
+  \end{adjustbox}
+  \caption{\LangKPCFv{} Grammar}
+  \label{fig:kpcfv}
+\end{figure}
+
+Observe that the types for \LangKPCFv{} contain type variables.
+This will allow you to write down expressions in an upcoming subsection that do not depend on the choice of any concrete type.
+To account for type variables, an \LangKPCFv{} term is type-checked under a context $\Delta$ of type variables.
+For the sake of simplicity, in this assignment we will fix our typing context $\Delta$ to be
+$$\Delta_0 \isdef{} \alpha, \beta, \gamma, \delta$$
+and omit the $\Delta$ from judgments.
+In the code, the four type variables are \code{A}, \code{B}, \code{C}, and \code{D}.
+
+\subsection{Elaboration}
+
+As mentioned, we elaborate \LangKPCF{} expressions (easier for humans to write code in) to \LangKPCFv{} expressions (easier to specify and implement).
+We give a few cases of the translation $\Elaborate{e}$ here, assuming the trivial translation $\Elaborate{\tau}$:
+\begin{align*}
+  \Elaborate{x} &= x \\
+  \Elaborate{\letbeabt{e_1}{x}{e_2}} &= \bindabt{\compabt{e_1}}{x}{e_2} \\
+  \Elaborate{\letccabt{\tau}{x}{e}} &= \letccabt{\Elaborate{\tau}}{x}{\Elaborate{e}} \\
+  \Elaborate{\throwabt{\tau}{e}{e_1}} &= \bindabt{\compabt{\Elaborate{e}}}{x_e}{\bindabt{\compabt{\Elaborate{e_1}}}{x_{e_1}}{\throwabt{\Elaborate{\tau}}{x_e}{x_{e_1}}}} \\
+  \Elaborate{\unitexabt} &= \retabt{\unitexabt} \\
+  \Elaborate{\pairexabt{e_1}{e_2}} &= \bindabt{\compabt{\Elaborate{e_1}}}{x_{e_1}}{\bindabt{\compabt{\Elaborate{e_2}}}{x_{e_2}}{\retabt{\pairexabt{x_{e_1}}{x_{e_2}}}}} \\
+  \Elaborate{\splitexabt{e}{x_1}{x_2}{e'}} &= \bindabt{\compabt{\Elaborate{e}}}{x_e}{\splitexabt{x_e}{x_1}{x_2}{\Elaborate{e'}}}
+\end{align*}
+
+The remaining cases are similar and may be found in \path{kpcf/elaborator/elaborator.sml}.
+Observe that \LangKPCFv{} requires us to sequentialize the dynamics such that the code now guarantees a particular evaluation order.
+
+\subsection{Statics}
+
+We will have a typing judgments for each of our syntactic forms.
+\[
+  \begin{array}{c l}
+    \IsOfStack{k}{\tau} & \text{stack $k$ accepts a value of type $\tau$} \vspace{0.3em} \\
+    \typeJC{v}{\tau} & \text{value $v$ has type $\tau$} \vspace{0.3em} \\
+    \eTypeJC{e}{\tau} & \text{expression $e$ may evaluate to a value of $\tau$} \\
+    \IsOK{s} & \text{state $s$ is well-formed}
+  \end{array}
+\]
+
+\vspace{1em}
+
+\fbox{$\IsOfStack{k}{\tau}$}
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\IsOfStack{\EmptyStack}{\tau}}
+
+  \inferrule
+    {\eTypeJ{\IsOf{x}{\tau}}{e}{\tau'} \\ \IsOfStack{k}{\tau'}}
+    {\IsOfStack{\StackFrame{k}{x}{e}}{\tau}}
+\end{mathpar}
+Notice that typing for $e$ does \emph{not} carry a context $\Gamma$ with it. This is not a shorthand or a mistake: since we evaluate only closed terms, $x$ should be the only free variable in $e$. Be sure to implement this correctly.
+
+\vspace{1em}
+
+\fbox{$\typeJC{v}{\tau}$}
+\begin{mathpar}
+  \inferrule
+    {\strut}
+    {\typeJ{\ctx, \IsOf{x}{\tau}}{x}{\tau}}
+
+  \inferrule
+    {\eTypeJC{e}{\tau}}
+    {\typeJC{\compabt{e}}{\comptycst{\tau}}}
+
+  \inferrule
+    {\IsOfStack{k}{\tau}}
+    {\typeJC{\contexabt{k}}{\conttycst{\tau}}}
+  \\
+
+  \inferrule
+    {\strut}
+    {\typeJC{\unitexabt}{\unittycst}}
+
+  \inferrule
+    {\typeJC{v_1}{\tau_1} \\ \typeJC{v_2}{\tau_2}}
+    {\typeJC{\pairexabt{v_1}{v_2}}{\prodtycst{\tau_1}{\tau_2}}}
+  \\
+
+  \inferrule
+    {\typeJC{v}{\tau_1}}
+    {\typeJC{\inlexabt{\tau_1}{\tau_2}{v}}{\sumtycst{\tau_1}{\tau_2}}}
+
+  \inferrule
+    {\typeJC{v}{\tau_2}}
+    {\typeJC{\inrexabt{\tau_1}{\tau_2}{v}}{\sumtycst{\tau_1}{\tau_2}}}
+  \\
+
+  \inferrule
+    {\eTypeJ{\ctx, \IsOf{f}{\parrtycst{\tau_1}{\tau_2}, \IsOf{x}{\tau_1}}}{e}{\tau_2}}
+    {\typeJC{\funabt{\tau_1}{\tau_2}{f}{x}{e}}{\parrtycst{\tau_1}{\tau_2}}}
+
+  \inferrule
+    {\eTypeJ{\ctx, \IsOf{x}{\tau_1}}{e}{\tau_2}}
+    {\typeJC{\lamabt{\tau_1}{x}{e}}{\parrtycst{\tau_1}{\tau_2}}}
+  \\
+
+  \inferrule
+    {\strut}
+    {\typeJC{\zerocst}{\nattycst}}
+
+  \inferrule
+    {\typeJC{v}{\nattycst}}
+    {\typeJC{\succabt{v}}{\nattycst}}
+\end{mathpar}
+
+\vspace{1em}
+
+\fbox{$\eTypeJC{e}{\tau}$}
+\begin{mathpar}
+  \inferrule
+    {\typeJC{v}{\tau}}
+    {\eTypeJC{\retabt{v}}{\tau}}
+
+  \inferrule
+    {\typeJC{v}{\comptycst{\tau_1}} \\ \eTypeJ{\ctx, \IsOf{x}{\tau_1}}{e}{\tau_2}}
+    {\eTypeJC{\bindabt{v}{x}{e}}{\tau_2}}
+  \\
+
+  \inferrule
+    {\eTypeJ{\ctx,\IsOf{x}{\conttycst{\tau}}}{e}{\tau}}
+    {\eTypeJC{\letccabt{\tau}{x}{e}}{\tau}}
+
+  \inferrule
+    {\typeJC{v}{\conttycst{\tau}} \\ \typeJC{v_1}{\tau}}
+    {\eTypeJC{\throwabt{\rho}{v}{v_1}}{\rho}}
+  \\
+
+  \inferrule
+    {\typeJC{v}{\prodtycst{\tau_1}{\tau_2}} \\ \eTypeJ{\ctx, \IsOf{x_1}{\tau_1}, \IsOf{x_2}{\tau_2}}{e}{\tau}}
+    {\eTypeJC{\splitexabt{v}{x_1}{x_2}{e}}{\tau}}
+  \\
+
+  \inferrule
+    {\typeJC{v}{\voidtyabt}}
+    {\eTypeJC{\abortexabt{\tau}{v}}{\tau}}
+
+  \inferrule
+    {
+      \typeJC{v}{\sumtycst{\tau_1}{\tau_2}} \\
+      \eTypeJ{\ctx, \IsOf{x_1}{\tau_1}}{e_1}{\tau} \\
+      \eTypeJ{\ctx, \IsOf{x_2}{\tau_2}}{e_2}{\tau}
+    }
+    {\eTypeJC{\caseexabt{v}{x_1}{}{e_1}{x_2}{}{e_2}}{\tau}}
+  \\
+
+  \inferrule
+    {\typeJC{v}{\parrtycst{\tau_1}{\tau_2}} \\ \typeJC{v_1}{\tau_1}}
+    {\eTypeJC{\appabt{v}{v_1}}{\tau_2}}
+
+  \inferrule
+    {
+      \typeJC{v}{\nattyabt} \\
+      \eTypeJC{e_0}{\tau} \\
+      \eTypeJ{\ctx, \IsOf{x}{\nattyabt}}{e_1}{\tau}
+    }
+    {\eTypeJC{\ifzabt{v}{e_0}{x}{e_1}}{\tau}}
+\end{mathpar}
+Notice that $\retcst{v}$ is the only way to elevate a value into a computation.
+
+\vspace{1em}
+
+\fbox{$\IsOK{s}$}
+\begin{mathpar}
+  \inferrule
+    {\IsOfStack{k}{\tau} \\ \typeJ{\cdot}{v}{\tau}}
+    {\IsOK{\CRet{k}{v}}}
+
+  \inferrule
+    {\IsOfStack{k}{\tau} \\ \eTypeJ{\cdot}{e}{\tau}}
+    {\IsOK{\CEval{k}{e}}}
+\end{mathpar}
+
+\task{20}
+Implement the statics for \LangKPCFv{} in \path{kpcf/language/statics.sml}
+according to \path{kpcf/language/statics.sig}.
+
+\begin{remark}
+  The functions \code{inferTypeValue} and \code{inferTypeExp} infer (synthesize) a type.
+  However, the function \code{checkStack} \emph{takes in} a type and checks that the stack can accept values of that type.
+  If an erroneous situation is encountered, you should raise \code{TypeError} as usual.
+\end{remark}
+
+\subsection{Dynamics}
+
+Evaluating a \LangKPCFv{} term using \MachK~Machines starts in the initial state $\CEval{\EmptyStack}{e}$.
+%
+The evaluation terminates when it reaches a final state specified by the dynamics after taking a number of transition steps.
+The following judgments are involved in describing the dynamics using \MachK~machines:
+%
+\[
+  \begin{array}{c l}
+    s \StepsTo s & \text{evaluation state taking a step} \vspace{0.3em} \\
+    \IsFinal{s} & \text{evaluation state is final}
+  \end{array}
+\]
+
+\begin{mathpar}
+  \axiom{\CEval{k}{\retabt{v}} \StepsTo \CRet{k}{v}}
+
+  \axiom{\CEval{k}{\bindabt{\compabt{e}}{x}{e'}} \StepsTo \CEval{\StackFrame{k}{x}{e'}}{e}}
+  \\
+
+  \axiom{
+    \CEval{k}{\letccabt{\tau}{x}{e}}
+    \StepsTo
+    \CEval{k}{\Subst{\contexabt{k}}{x}{e}}
+  }
+
+  \axiom{
+    \CEval{k}{\throwabt{\tau}{\contexabt{k'}}{v}}
+    \StepsTo
+    \CRet{k'}{v}
+  }
+  \\
+
+  \axiom{
+    \CEval{k}{\splitexabt{\pairexcst{v_1}{v_2}}{x_1}{x_2}{e}}
+    \StepsTo
+    \CEval{k}{\Subst{v_1, v_2}{x_1, x_2}{e}}
+  }
+  \\
+
+  \axiom{
+    \CEval{k}{\caseexabt{\inlexcst{}{v}}{x}{}{e_1}{x_2}{}{e_2}}
+    \StepsTo
+    \CEval{k}{\Subst{v}{x_1}{e_1}}
+  }
+
+  \axiom{
+    \CEval{k}{\caseexabt{\inrexcst{}{v}}{x_1}{}{e_1}{x_2}{}{e_2}}
+    \StepsTo
+    \CEval{k}{\Subst{v}{x_2}{e_2}}
+  }
+  \\
+
+  \axiom{
+    \CEval{k}{\appabt{\funabt{\tau_1}{\tau_2}{f}{x}{e}}{v_1}}
+    \StepsTo
+    \CEval{k}{\Subst{\funabt{\tau_1}{\tau_2}{f}{x}{e},v_1}{f,x}{e}}
+  }
+
+  \axiom{
+    \CEval{k}{\appabt{\lamabt{\tau}{x}{e}}{v_1}}
+    \StepsTo
+    \CEval{k}{\Subst{v_1}{x}{e}}
+  }
+  \\
+
+  \axiom{\CEval{k}{\ifzabt{\zeroabt}{e_0}{x}{e_1}} \StepsTo \CEval{k}{e_0}}
+
+  \axiom{\CEval{k}{\ifzabt{\succabt{v}}{e_0}{x}{e_1}} \StepsTo \CEval{k}{\Subst{v}{x}{e_1}}}
+  \\
+
+\end{mathpar}
+
+\begin{mathpar}
+  \axiom{\IsFinal{\CRet{\EmptyStack}{v}}}
+
+  \axiom{\CRet{\StackFrame{k}{x}{e}}{v} \StepsTo \CEval{k}{\Subst{v}{x}{e}}}
+\end{mathpar}
+
+In the dynamics, $\retcst{v}$ is the only expression that causes the state to change from evaluation mode to return mode.
+Also, $\bindabt{\compabt{e}}{x}{e'}$ is the only expression that causes a new stack frame to be generated.
+
+Notice how simple defining dynamics are: you only need to take care for the elimination forms.
+Introduction forms are naturally taken care of through modal separation.
+You will also notice how modal separation dramatically simplifies your dynamics implementation.
+
+\subsubsection{The \MachK~Machine}
+
+Before we implement the \MachK~machine, let's run some small \LangKPCFv{} examples on paper.
+
+Consider the following expression $e$:
+\begin{align*}
+  h &\isdef{} \lamabt{\arrtycst{\nattycst}{\nattycst}}{f}{\bindabt{\compabt{\appabt{f}{\zeroabt}}}{x}{\bindabt{\compabt{\appabt{f}{x}}}{y}{\retabt{\succabt{y}}}}} \\
+  g[k] &\isdef{} \lamabt{\nattycst}{n}{\ifzabt{n}{\retabt{\numeral{10}}}{n'}{\throwabt{\nattycst}{k}{n'}}} \\
+  e &\isdef{} \letccabt{\nattycst}{k}{\appabt{h}{g[k]}}
+\end{align*}
+It calls higher-order function $h$ on function $g$, which conditionally returns numeral 10 or throws to the top-level continuation.
+
+We can evaluate $e$ on the empty stack $\EmptyStack$ as follows:
+\begin{align*}
+             & \CEval{\EmptyStack}{\letccabt{\nattycst}{k}{\appabt{h}{g[k]}}} \\
+  \StepsTo{} & \CEval{\EmptyStack}{\appabt{h}{g[\contexabt{\EmptyStack}]}} \\
+  \StepsTo{} & \CEval{\EmptyStack}{\bindabt{\compabt{\appabt{g[\contexabt{\EmptyStack}]}{\zeroabt}}}{x}{\bindabt{\compabt{\appabt{g[\contexabt{\EmptyStack}]}{x}}}{y}{\retabt{\succabt{y}}}}} \\
+  \StepsTo{} & \CEval{k_1}{\appabt{g[\contexabt{\EmptyStack}]}{\zeroabt}} \\
+  \StepsTo{} & \CEval{k_1}{\ifzabt{\zeroabt}{\retabt{\numeral{10}}}{n'}{\throwabt{\nattycst}{\contexabt{\EmptyStack}}{n'}}} \\
+  \StepsTo{} & \CEval{k_1}{\retabt{\numeral{10}}} \\
+  \StepsTo{} & \CRet{k_1}{\numeral{10}} \\
+  \StepsTo{} & \CEval{\EmptyStack}{\bindabt{\compabt{\appabt{g[\contexabt{\EmptyStack}]}{\numeral{10}}}}{y}{\retabt{\succabt{y}}}} \\
+  \StepsTo{} & \CEval{\StackFrame{\EmptyStack}{y}{\retabt{\succabt{y}}}}{\appabt{g[\contexabt{\EmptyStack}]}{\numeral{10}}} \\
+  \StepsTo{} & \CEval{\StackFrame{\EmptyStack}{y}{\retabt{\succabt{y}}}}{\ifzabt{\numeral{10}}{\retabt{\numeral{10}}}{n'}{\throwabt{\nattycst}{\contexabt{\EmptyStack}}{n'}}} \\
+  \StepsTo{} & \CEval{\StackFrame{\EmptyStack}{y}{\retabt{\succabt{y}}}}{\throwabt{\nattycst}{\contexabt{\EmptyStack}}{\numeral{9}}} \\
+  \StepsTo{} & \CRet{\EmptyStack}{\numeral{9}}
+\end{align*}
+where we abbreviate:
+\begin{align*}
+  k_1 &= \StackFrame{\EmptyStack}{x}{\bindabt{\compabt{\appabt{g[\contexabt{\EmptyStack}]}{x}}}{y}{\retabt{\succabt{y}}}}
+\end{align*}
+Observe that $\IsFinal{\CRet{\EmptyStack}{\numeral{9}}}$, so $e$ evaluates to $\numeral{9}$.
+
+\task{10}
+Consider the following expression $e$:
+\begin{align*}
+  \textsc{Lem}[\tau] &\isdef{} \letccabt{\sumtycst{\tau}{\conttycst{\tau}}}{k}{\bindabt{\compabt{\letccabt{\tau}{k'}{\throwabt{\tau}{k}{\inrexcst{}{k'}}}}}{x}{\retabt{\inlexcst{}{x}}}} \\
+  e &\isdef{} \bindabt{\compabt{\textsc{Lem}[\nattycst]}}{y}{\caseexabt{y}{n}{}{\retabt{n}}{k}{}{\throwabt{\nattyabt}{k}{\numeral{312}}}}
+\end{align*}
+Evaluate $\CEval{\EmptyStack}{e}$ until it reaches a final state.
+\solution{kpcf-trace-cont}
+
+\subsubsection{Implementing the \MachK~Machine}
+
+\task{20} Implement the structure \code{Dynamics} in the file \path{kpcf/language/dynamics.sml}.
+
+\paragraph{Testing}
+
+A REPL is available through \code{InterpreterKPCF.repl ()}, in which you can directly input \LangKPCF{}
+expressions and see the type and the value it evaluates to. Remember your input has to be a modal
+separated expression, otherwise the parser will reject your input outright. Here is an example interaction
+with the interpreter:
+\begin{lstlisting}
+  - InterpreterKPCF.repl ();
+  ->z;
+  Statics: term has type Nat
+  Zero
+  ->fn (a : A) => fn (b : B) => <a, b>;
+  Statics: term has type (Arrow (A, (Arrow (B, (Prod (A, B))))))
+  (Lam ((a17, A) . (Ret (Lam ((b19, B) . (Bind ((Comp (Ret a17)), (tuple_e1_21 . (Bind ((Comp (Ret b19)), (tuple_e2_23 . (Ret (Tuple (tuple_e1_21, tuple_e2_23))))))))))))))
+  ->letcc[unit] k in throw[unit](k, <>);
+  Statics: term has type Unit
+  Unit
+\end{lstlisting}
+
+A Testing harness can be accessed through \texttt{TestHarness.runalltests true}. It evaluates files listed in \texttt{tests/tests.sml}. These test files also serves as a syntax guide.
+
+\subsection{A Continuation of Logic}
+
+Earlier in the semester, we observed that types correspond to logical propositions.
+We considered a language with a type system corresponding to \emph{constructive} propositional logic.
+Now, we explore this correspondence in the presence of continuations, which we may interpret as \emph{refutations}.
+Then, the continuation type corresponds to \emph{classical} negation.
+We recall the earlier correspondence, extending it with continuations:
+\begin{center}
+  \begin{tabular}{c c c}
+    Connective        & Proposition $\varphi$           & Type $\overline{\varphi}$ \\ \hline
+    trivial truth     & $\ltrue$                        & $\unittycst$ \\
+    conjunction       & $\varphi_1 \land \varphi_2$     & $\prodtycst{\overline{\varphi_1}}{\overline{\varphi_2}}$ \\
+    trivial falsehood & $\lfalse$                       & $\voidtycst$ \\
+    disjunction       & $\varphi_1 \lor \varphi_2$      & $\sumtycst{\overline{\varphi_1}}{\overline{\varphi_2}}$ \\
+    implication       & $\varphi_1 \limplies \varphi_2$ & $\arrtycst{\overline{\varphi_1}}{\overline{\varphi_2}}$ \\
+    negation          & $\lnot \varphi$                 & $\conttyabt{\overline{\varphi}}$
+  \end{tabular}
+\end{center}
+
+This correspondence doesn't quite hold in \LangKPCF{}, since divergence results in an inconsistent proof system.
+For example, the value
+$$\funabt{\unittyabt}{\voidtyabt}{f}{x}{f(x)} : \unittyabt \to \voidtyabt$$
+would prove the proposition $\ltrue \supset \lfalse$, which should not be the case.
+Therefore, we consider a subset of \LangKPCF{} in which all expressions terminate in this subsection, using $\arrtycst{\tau_1}{\tau_2}$ instead of $\parrtycst{\tau_1}{\tau_2}$.
+{\bf For the tasks in this subsection, you may not use recursive functions.}
+
+You should write the following proofs using the concrete syntax of \LangKPCF{}, available in the table in \Cref{sec:kpcf};
+we will elaborate your code to \LangKPCFv{} for typechecking, so you may interpret $\typeJ{}{e}{\tau}$ in \LangKPCF{} as $\eTypeJ{}{\Elaborate{e}}{\Elaborate{\tau}}$ in \LangKPCFv{}.
+Feel free to draw inspiration from sample proofs in \path{kpcf/tests/}.
+To test your answers, you can use the function \code{InterpreterKPCF.checkFile}.
+
+\begin{task}{10}
+To refute $A \lor B$, you need to refute both $A$ and $B$. In \path{kpcf/refute.kpcf}, exhibit an expression $e$ such that:
+\[
+  \typeJ{}{e}{
+    \arrtycst
+      {\prodtycst{\contexcst{\alpha}}{\contexcst{\beta}}}
+      {\contexcst{\sumtycst{\alpha}{\beta}}}
+  }
+\]
+\textsf{Behavior specification:} Let $k$ be the continuation which $\appcst{e}{\pairexcst{k_1}{k_2}}$ evaluates to. Then, throwing $\inlexcst{}{v}$ to $k$ throws $v$ to $k_1$, and throwing $\inrexcst{}{v}$ to $k$ throws $v$ to $k_2$.
+\end{task}
+
+\solution{kpcf-refute}
+
+The use of continuation blurs the difference between constructive negations $A \limplies \lfalse$ and refutations of $A$.
+Constructively, a value of $\arrtycst{\alpha}{\voidtycst}$ affirms the nonexistence of values of type $\alpha$, since there is no value of type $\voidtycst$.
+However, in (terminating) \LangKPCFv{}, it's possible to come up with a function of type $\arrtycst{\alpha}{\voidtycst}$ provided with a continuation of $\alpha$:
+\[
+  \IsOf
+    {\lamcst{\conttycst{\alpha}}{k}{\lamcst{\alpha}{x}{\throwabt{\voidtycst}{k}{x}}}}
+    {\arrtycst{\conttycst{\alpha}}{(\arrtycst{\alpha}{\voidtycst})}}
+\]
+The continuation serves as an escape hatch for the function, saving the term from having to produce a value of type $\voidtycst$. This corresponds to the tautology $\lnot A \limplies (A \limplies \lfalse)$.
+
+
+\begin{task}{10} Show that the converse also holds. In \path{kpcf/nothrow.kpcf}, exhibit an expression $e$ such that:
+
+\[
+  \typeJ{}{e}{
+    \arrtycst{\cdparens{\arrtycst{\alpha}{\voidtycst}}}{\contexcst{\alpha}}
+  }
+\]
+
+\textsf{Behavior specification:} Let $k$ be the continuation which $\appcst{e}{f}$ evaluates to. Hypothetically, throwing $v$ to $k$ would evaluate $\abortexabt{\alpha}{v'}$, for some $v'$.
+\end{task}
+
+\solution{kpcf-nothrow}
+
+\begin{task}{10}
+  Now consider the proposition $(A \supset B) \supset (B \lor \lnot A)$.
+  The \emph{law of excluded middle} (LEM), $A \lor \lnot A$, is
+  directly derivable from this proposition if we substitute $A$ for $B$.
+  In fact, $(A \supset B) \supset (B \lor \lnot A)$ is equivalent to $A \lor \lnot A$.
+
+  In \path{kpcf/derivable.kpcf}, exhibit an expression $e$ of type:
+  $$\typeJ{}{e}{\arrtycst{(\arrtycst{\alpha}{\beta})}{(\beta + \contexcst{\alpha})}}$$
+  \textsf{Behavior specification:}
+  Suppose $v$ is the result of evaluating $\appcst{e}{f}$ on stack $k$.
+  If $v = \inrexcst{}{k'}$ for some continuation $k'$,
+  then throwing some $v'$ to $k'$ throws $\inlexcst{}{\appcst{f}{v'}}$ to $k$.
+\end{task}
+
+\solution{kpcf-derivable}
+
+In the lecture, we have observed it's possible to prove the law of excluded middle (LEM) by exhibiting a term of type $\sumtycst{\tau}{\contexcst{\tau}}$:
+$$\letccabt{\tau + \contexcst{\tau}}{r}{\bindabt{\compabt{\letccabt{\tau_1}{r'}{\throwcst{\tau}{ (\inrexcst{}{r'})}{r}}}}{x}{\inlexcst{}{x}}}$$
+
+\begin{task}{10}
+Another proposition that is equivalent to LEM is known as Peirce's law.
+%
+Although it's equivalent to LEM, it does not involve negation in the
+formula. In \path{kpcf/peirce.kpcf}, exhibit an expression $e$
+of the following type that corresponds to Peirce's law.
+%
+$$\typeJ{}{e}{ \arrtycst{(\arrtycst{(\arrtycst{\alpha}{\beta})}{\alpha})}{\alpha} }$$
+%
+\textsf{Behavior specification:}
+When applied to some function $f$, it returns a value of type $\alpha$.
+
+\textsf{Hint:} Consider how $f$ may behave: it either returns a value of $\alpha$,
+or it activates its argument with a value of $\alpha$.
+Either way, $f$ knows a proof of $\alpha$.
+\end{task}
+
+\solution{kpcf-peirce}
+
+\section{Twice Upon the \LangMA{}}
+
+In the previous section we have seen a language that manipulates the control flow. The modal
+separated language separates values, which does not step, from expressions, which steps and therefore
+induce a notion of control flow. This separation enables us to reify the control flow with a stack
+machine, then further reify the stack as a value, enabling programs to directly program their control
+flow.
+
+In this section we will deploy the idea of modal separation once more for \emph{storage effects}.
+Imperative languages are known for their ability to allocate, store and mutate contents in some storage,
+identified colloquially by variables, but here precisely as \emph{assignables}. Observe that the
+result of a program is sensitive to the order of storage effects, prompting us to consider a modal
+separated language between expressions, which are effect-free computations, and commands, which
+engenders, among possibly others, storage effects.
+
+In this section we will consider storage effects in two flavours: the \emph{free} assignables and
+the \emph{scoped} assignables. The scoped assignables are assignables whose existence are tied to
+a \emph{scope}, i.e. tied to command they are declared in. They model the idea of a ``local assignable''
+commonly found in imperative languages. In contrast, free assignables are assignables that, once allocated,
+exists independent of their scope of declaration. They model the idea of ``heap allocation'' commonly
+found in languages.
+
+In this assignment, you will explore both setups. We will start with modernized algo with free assignables.
+You will implement type checking and dynamics for this calculus, then implement a few commonly found
+syntax extensions for this language. You will then explore scoped assignables, presented with an explicit
+control stack, borrowing ideas from $\LangKPCF{}$. You will see that it is possible to further extend the
+language to support another commonly found non-local transfer of control, namely the \kw{exit} command.
+
+\clearpage
+
+\subsection{\LangMA{} with \emph{free} assignables}
+
+The (reduced) syntax chart for $\LangMA$ with free assignables is presented in Figure~\ref{fig:ma-free}.
+The syntax chart as presented focuses on the introduction of commands.
+
+\begin{figure}
+  \begin{synchart}{syn:free-ma}
+  \TypeSort     & \tau   & \bnfdef & \cdots                     & \cdots                     & \text{everything else}        \\
+                    &        & \bnfalt & \gcmdtycst{\tau}           & \gcmdtycst{\tau}           & \text{command types}          \\
+  \\
+  \ExprSort     & e      & \bnfdef & \cdots                     & \cdots                     & \text{everything else}        \\
+                    &        & \bnfalt & \cmdabt{m}                 & \cmdcst{m}                 & \text{encapsulated commands}  \\
+  \\
+  \Sort{Cmd}    & m      & \bnfdef & \retcmdabt{e}              & \retcmdcst{e}                 & \text{return} \\
+                &        & \bnfalt & \seqcmdabt{e}{x}{m}        & \seqcmdcst{e}{x}{m}        & \text{bind command} \\
+                &        & \bnfalt & \tnewvarabt{\tau}{e}{a}{m} & \tnewvarcst{\tau}{e}{a}{m} & \text{declare new assignable} \\
+                &        & \bnfalt & \getvarabt{a}              & \getvarcst{a}              & \text{get variable} \\
+                &        & \bnfalt & \setvarabt{a}{e}           & \setvarcst{a}{e}           & \text{set variable} \\
+  \end{synchart}
+  \caption{\LangMA{} Grammar}
+  \label{fig:ma-free}
+\end{figure}
+
+The language $\LangMA$ with free-assignable has two program syntax sort: that of expressions and that of
+commands. The top-level user program will be a command.
+
+On the expression level, expressions for sums, products, (recursive) functions, booleans and recursive types
+are all available and standard. They are evaluated eagerly. It additionally supports encapsulated commands
+(i.e. expressions containing ``unevaluated'' commands). This provides the language the ability to ``stage''
+commands in the expression layer so that they can be effected down the line. Unlike $\LangKPCFv$, values of
+expressions are part of expressions, as the modality distinguishes between commands and expressions, not
+values and non-values (within expressions).
+
+On the command layer, in addition to commands arising from the modal distinction, three additional
+commands are present: $\tnewvarabt{\tau}{e}{a}{m}$ declares the \emph{assignable} $a$ and make it
+available within $m$.
+It is important to understand that assignables
+themselves are in a different syntactic then variables, in particular the command $m$ is under an
+assignable binder, in other words, $a$ is \emph{not} a variable within $m$.
+The command $\getvarabt{a}$ and $\setvarcst{a}{e}$ reads from the assignable $a$
+and assigns to it with expression $e$ respectively.
+
+``Runtime'' incarnations of commands are machines of syntax $\RState{m}{\Sigma}{\mu}$, where $m$ is
+executing command, $\Sigma$ is the signature for already-allocated \emph{free} assignables,
+and $\mu$ is memory mapping assignables to expressions. The empty memory is denoted with
+$\emptyset$ (so is the empty signature).  Entries in the memory is syntactically delimited with the
+symbol ``$\otimes$''
+$$
+ \mu \bnfdef \emptyset \mid \extff{\mu}{a}{e_a}
+$$
+
+For example, the following memory $\mu_0$ maps assignable $a$ to $\zerocst$ and $b$ to $\trexcst$
+$$
+\mu_0 \triangleq \extff{\pairff{a}{\zerocst}}{b}{\trexcst}
+$$
+
+\paragraph{Statics}
+
+Similar to \LangKPCFv{}, we will have two judgments in our static semantics: one for expressions
+\boxed{\Gamma \entails[\Sigma]{\IsOf{e}{\tau}}}
+and one for commands
+\boxed{\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}.
+Both typing judgments are indexed by the signature of assignable, mapping the name of the assignable to
+the type of its (expression) content.
+
+The expression typing judgment states that expression $e$ has type $\tau$ under the signature $\Sigma$.
+For the expression forms that we have warmed up to, the signature is simply threaded through. To typed
+encapsulated commands, one simply that encapsulated command is well-typed as a command of type $\tau$,
+which we will explain shortly after.
+
+\boxed{\Gamma \entails[\Sigma]{\IsOf{e}{\tau}}}
+\begin{mathpar}
+\Infer*[\RIntroOf{\kw{cmd}}]
+  {\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOf{\cmdabt{m}}{\gcmdtycst{\tau}}}} \\
+\end{mathpar}
+
+The command typing judgment states that command $m$, when executed under signature $\Sigma$,
+(if terminates) produces a value of type $\tau$.
+
+\boxed{\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}.
+\begin{mathpar}
+\Infer*[\RCmdOf{\kw{ret}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\retcmdabt{e}}{\tau}}}
+
+\Infer*[\RCmdOf{\kw{bnd}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\gcmdtycst{\tau'}}} \\
+   \Gamma, \IsOf{x}{\tau'} \entails[\Sigma]{\IsOfM{m}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\seqcmdabt{e}{x}{m}}{\tau}}} \\
+
+\Infer*[\RCmdOf{\kw{get}}]
+  {\strut}
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{\getvarabt{a}}{\tau}}}
+
+\Infer*[\RCmdOf{\kw{set}}]
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{\setvarabt{a}{e}}{\unittycst}}}
+
+\Infer*[\RCmdOf{\kw{dcl}}]
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{m}{\tau'}} \\
+   \Gamma \entails[\Sigma]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\tnewvarabt{\tau}{e}{a}{m}}{\tau'}}}
+\end{mathpar}
+
+By executing a command under signature $\Sigma$, we meant the command is executed along with a
+memory $\mu$ that adheres to $\Sigma$, i.e. all assignables in $\Sigma$ are allocated and contains
+properly typed contents. This intuition is captured in the following ``machine'' typing judgment.
+
+\boxed{\entails[\Sigma]{\IsOK{\RState{m}{\Sigma}{\mu}}}}
+\begin{mathpar}
+  \Infer*[$M-\textrm{Ok}$]
+    {\entails[\Sigma]{\IsOfM{m}{\tau}} \\
+     \forall_{a \in \Sigma}(~\entails[\Sigma]{\IsOf{\mu(a)}{\Sigma(a)}})}
+    {\IsOK{\RState{m}{\Sigma}{\mu}}}
+\end{mathpar}
+
+The rules state that a machine is well-behaving if the command is well-typed under the signature of
+the currently allocated assignables, and that for every entry $a$ of the memory $\mu$, the content
+of the cell $\mu(a)$ is well-typed, again under the current signature $\Sigma$, with type specified by
+the signature $\Sigma(a)$.
+
+\paragraph{Dynamics} When provided with user program $m$, the machine executes with the
+initial state $\RState{m}{\emptyset}{\emptyset}$, i.e. with an empty signature and memory. The final state of
+the machine consists of single $\retcst{e}$ where $\IsVal{e}$, regardless of the status of $\Sigma$
+and $\mu$. For the machine to be final, not only all commands are processed, the expression must also
+have reached a value.
+
+\boxed{\IsInitial{\RState{m}{\Sigma}{\mu}}}
+\boxed{\IsFinal{\RState{m}{\Sigma}{\mu}}}
+\begin{mathpar}
+\Infer*[\RDynOf{\kw{init}}]
+  {\strut}
+  {\IsInitial{\RState{m}{\emptyset}{\emptyset}}}
+
+\Infer*[\RDynOf{\kw{fin}}]
+  {\IsVal{e}}
+  {\IsFinal{\RState{\retcst{e}}{\Sigma}{\mu}}}
+\end{mathpar}
+
+Execution of the machine are defined case-by-case for each command. Commands that work on expressions,
+such as $\retcst{e}$ and $\setvarcst{a}{e}$, must first evaluate their expression fully.
+
+\boxed{\RState{m}{\Sigma}{\mu} \StepsTo{} \RState{m'}{\Sigma'}{\mu'}}
+\begin{mathpar}
+\Infer*[\RDynIOf{1}{\kw{ret}}]
+  {e \StepsTo{} e'}
+  {\RState{\retcmdabt{e}}{\Sigma}{\mu} \StepsTo{} \RState{\retcmdabt{e'}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{1}{\kw{bnd}}]
+  {\RState{m}{\Sigma}{\mu} \StepsTo{} \RState{m'}{\Sigma}{\mu'}}
+  {\RState{\seqcmdabt{\cmdabt{m}}{x}{m_1}}{\Sigma}{\mu} \StepsTo{} \RState{\seqcmdabt{\cmdabt{m'}}{x}{m_1}}{\Sigma}{\mu'}}
+
+\Infer*[\RDynIOf{2}{\kw{bnd}}]
+  {\IsVal{e}}
+  {\RState{\seqcmdabt{\cmdabt{\retcmdabt{e}}}{x}{m_1}}{\Sigma}{\mu} \StepsTo{} \RState{\Subst{e}{x}{m_1}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{3}{\kw{bnd}}]
+  {e \StepsTo{} e'}
+  {\RState{\seqcmdabt{e}{x}{m''}}{\Sigma}{\mu} \StepsTo{} \RState{\seqcmdabt{e'}{x}{m''}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{1}{\kw{get}}]
+  {\strut}
+  {\RState{\getvarabt{a}}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}} \StepsTo{}
+   \RState{\retcmdabt{e}}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}}
+
+\Infer*[\RDynIOf{1}{\kw{set}}]
+  {e \StepsTo{} e'}
+  {\RState{\setvarabt{a}{e}}{\Sigma, \HasSym{a}{\tau}}{\mu} \StepsTo{} \RState{\setvarabt{a}{e'}}{\Sigma, \HasSym{a}{\tau}}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{set}}]
+  {\IsVal{e}}
+  {\RState{\setvarabt{a}{e}}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e'}}
+      \StepsTo{}
+   \RState{\retcmdabt{\unitexcst}}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}}
+
+\Infer*[\RDynIOf{1}{\kw{dcl}}]
+  {e \StepsTo{} e'}
+  {\RState{\tnewvarabt{\tau}{e}{a}{m}}{\Sigma}{\mu}
+      \StepsTo{}
+   \RState{\tnewvarabt{\tau}{e'}{a}{m}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{dcl}}]
+  {\IsVal{e}}
+  {\RState{\tnewvarabt{\tau}{e}{a}{m}}{\Sigma}{\mu}
+      \StepsTo{}
+   \RState{m}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}}
+\end{mathpar}
+
+One notable command is that of $\tnewvarcst{\tau}{e}{a}{m}$. This commands after evaluating the principal expression to
+a value, allocates a new assignable in the signature and memory. Once allocated, the assignable exists
+``permanently'', even when the encapsulated command returns. This allows references to the allocated assignable
+to escape it's intended scope, setting the assignable \emph{free}.
+
+\paragraph{Implementation}
+In this part you will complete a partial implementation of the language. We have provided type checker and stepping
+for expressions. You will need to implement the statics and dynamics of the language
+
+\task{20}
+Implement the typechecker for \LangMA{} with free assignables in the structure \code{StaticsMA} in \path{ma/statics_ma.sml}
+according to \path{ma/statics_ma.sig}. In particular we have implemented the statics for expressions, so you only need to implement that of commands.
+
+Programming in plain $\LangMA$ quickly becomes unwieldy. To ease the pain, the implementation provides the
+following syntactical conveniences:
+
+\begin{itemize}
+  \item $\ifcmdcst{m}{m_1}{m_2}$: Conditional command, which executes $m$ for $\booltycst$ and branch.
+  \item $\whilecmdcst{m}{m_1}$: Loop command, which executes $m_1$ until test in $m$ fails.
+  \item $\semicmdcst{m_1}{m_2}$: Sequencing command, which execute $m_1$ and $m_2$ sequentially.
+  \item $\ignorecmdcst{m}$: ``\kw{ignore}'' command, which runs the command and throws away the result.
+\end{itemize}
+
+Typing judgments for these short-hands are provided as follows. The loop command has type
+$\unittycst$ because it is possible that the loop body never executes.
+
+\begin{mathpar}
+\Infer*
+  {\Gamma \entails[\Sigma]{\IsOfM{m}{\booltycst}} \\
+   \Gamma \entails[\Sigma]{\IsOfM{m_1}{\tau}} \\
+   \Gamma \entails[\Sigma]{\IsOfM{m_2}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\ifcmdcst{m}{m_1}{m_2}}{\tau}}}
+
+\Infer*
+  {\Gamma \entails[\Sigma]{\IsOfM{m}{\booltycst}} \\
+   \Gamma \entails[\Sigma]{\IsOfM{m_1}{\unittycst}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\whilecmdcst{m}{m_1}}{\unittycst}}}
+
+\Infer*
+  {\Gamma \entails[\Sigma]{\IsOfM{m_1}{\unittycst}} \\
+   \Gamma \entails[\Sigma]{\IsOfM{m_2}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\semicmdcst{m_1}{m_2}}{\tau}}}
+
+\Infer*
+  {\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\ignorecmdcst{m}}{\unittycst}}}
+\end{mathpar}
+
+\task{20}
+Desugar these syntax conveniences into commands of our language in \\ \path{ma/parser/desugar.sml} according to \path{ma/parser/desugar.sig}.
+Implement the command dynamics for \LangMA{} with free assignables in the structure \code{DynamicsMA}
+in \path{ma/dynamics_ma.sml}.
+
+The parser will use your version of \code{Desugar} to parse the concrete syntax, so you will not be able to run \LangMA{} code until you have implemented the desugaring functions.
+
+To help you program in \LangMA{}, we provide some other syntactic sugars, which are explained in \Cref{appendix:MA}. Concrete syntax is also explained in \Cref{appendix:MA}. We also provide you a set of test cases in \path{ma/tests/basic} and \path{ma/tests/large}.
+
+\task{10}
+Implement the following functions in \LangMA{} using concrete syntax. Your solution shouldn't be recursive and should use \LangMA{} features.
+\begin{enumerate}
+  \item In \path{ma/tests/tasks/collatz.ma}, implement \code{collatz : nat -> cmd[nat]} such that \code{collatz n} returns the number of steps it takes to reach $1$ when starting from \code{n} and repeatedly applying the following rule: if \code{n} is even, divide it by $2$. If \code{n} is odd, multiply it by $3$ and add 1. For example, \code{collatz 27} should return $111$.\footnote{\url{https://en.wikipedia.org/wiki/Collatz_conjecture}}
+  \item In \path{ma/tests/tasks/gcd.ma}, implement \code{gcd : nat -> nat -> cmd[nat + unit]} such that \code{gcd m n} returns the greatest common divisor of \code{m} and \code{n} when defined. Greatest common divisor of $0$ and $0$ is undefined and should return right of unit. For example, \code{gcd 4 6} should return $2$ injected to the left.
+\end{enumerate}
+
+You might recall similar implementation of those functions in language like C as \ref{fig:ma-programming}.
+
+\begin{figure}[!h]
+  \begin{codeblock}
+    int collatz(int n) {
+      int count = 0;
+      while (n != 1) {
+        if (n % 2 == 0) {
+          n = n / 2;
+        } else {
+          n = 3 * n + 1;
+        }
+        count = count + 1;
+      }
+      return count;
+    }
+
+    int gcd(int m, int n) {
+      if (m == 0 && n == 0) {
+        // error
+      }
+      while (n != 0) {
+        int r = m % n;
+        m = n;
+        n = r;
+      }
+      return m;
+    }
+  \end{codeblock}
+  \caption{\code{collatz} and \code{gcd} in C}
+  \label{fig:ma-programming}
+\end{figure}
+
+\paragraph{Testing}
+As usual, you can test your code using \code{InterpreterMA}. We provide a set of test cases for \code{collatz} and \code{gcd} in \path{ma/tests/test.ma}. For example:
+\begin{codeblock}
+  - InterpreterMA.repl ();
+  ->ret(1);
+  (Num 1)
+  ->local a := 1 in { set a := 2 , get a };
+  (Num 2)
+
+  - InterpreterMA.evalFile "large/sum.ma";
+  (Num 10000)
+  val it = () : unit
+\end{codeblock}
+
+
+\subsection{\LangMA{} with \emph{scoped} assignables}
+
+Alternative to assignables being \emph{free}, they can be alternatively be \emph{scoped}. The existence of a scoped
+assignable is tied to the ``block'' that the assignable is declared in. The assignable is created when we enter the
+scope, and it is de-allocated when we exit it. The number of assignables allocated at a time increases as we drill
+down into sub-commands, and decreases when we come back up.
+
+Therefore, it is a common design to tie the scoped assignable to the control stack, as exemplified by the
+\kw{C}-family languages. Scoped assignables are colloquially referred to as \emph{stack-allocated} assignable for
+this reason. In principle, the assignables do not have to be allocated literally ``on the stack'', as in occupying
+control stack spaces.
+
+In this exercise, we will examine this common design choice, by first taking inspiration from $\LangKPCF{}$ and make
+explicit the control stack of $\LangMA$ with scoped assignables. We will see how this design presents us intricate
+proofs of safety. We will then extend the language with a new command that resembles a $\kw{throw}$ expression,
+performing a non-local transfer of control. However, this new command must respect the scoped assignable allocation
+scheme, which leads to an interesting design.
+
+\begin{figure}[!h]
+\begin{synchart}{syn:ma-stack}
+  \TypeSort     & \tau   & \bnfdef & \cdots                     & \cdots                     & \text{everything else}        \\
+  \\
+  \ExprSort     & e      & \bnfdef & \cdots                     & \cdots                     & \text{everything else}        \\
+  \\
+  \Sort{Cmd}    & m      & \bnfdef & \cdots                     & \cdots                     & \text{everything else} \\
+  \\
+  \Sort{Stack} & k    & \bnfdef   & \EmptyStack                     & \EmptyStack                      & \text{empty stack} \\
+               &      & \bnfalt   & \ConsStack{\FrameBnd{x}{m}}{k}  & \ConsStack{\FrameBnd{x}{m}}{k}   & \text{sequenced command} \\
+               &      & \bnfalt   & \ConsStack{\FrameDcl{a}}{k}     & \ConsStack{\FrameDcl{a}}{k}      & \text{allocation frame} \\
+  \\
+  \Sort{Mach}  & \mathcal{M}  & \bnfdef   & \CEvalM{k}{m}{\Sigma}{\mu}      & \CEvalM{k}{m}{\Sigma}{\mu}       & \text{machine evaluates} \\
+               &              & \bnfalt   & \CRetM{k}{e}{\Sigma}{\mu}       & \CRetM{k}{e}{\Sigma}{\mu}        & \text{machine returns} \\
+  \\
+\end{synchart}
+  \caption{\LangMA{} with a stack machine Grammar}
+  \label{fig:ma-stacked}
+\end{figure}
+
+Fig.~\ref{fig:ma-stacked} presents the syntax for the stack frame and machine. The command level is exactly like
+before. The expression level contains sums, products (recursive functions) and a few base types,
+including $\nattycst$, and is also completely standard otherwise.
+
+The runtime machine is again indexed by an allocated assignable signature $\Sigma$. Associated with the signature
+is the memory $\mu$. It now additionally contains a command stack $k$, recording subsequent commands along with
+scope of the allocated assignables.
+
+The machine can either be an evaluation state, in which case it contains the currently executing command $m$, or
+it can be in a returning state with an expression to be returned.
+
+\paragraph{Statics} We will derive the statics of the language from the previous part. The expressions of the language
+are typed exactly the same. On the command level, the declaration command now demands the return type and the type of
+the assignable to be \emph{mobile}. Intuitively, a type is mobile if its values does not depend on assignables. This
+is to prevent the declared assignable to leave the scope of declaration and break safety.
+
+\boxed{\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}
+\begin{mathpar}
+\Infer*[\RCmdOf{\kw{dcl}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\tau}} \\
+   \Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{m}{\tau'}} \\
+   \IsMobile{\tau} \\
+   \IsMobile{\tau'}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\tnewvarabt{\tau}{e}{a}{m}}{\tau'}}}
+\end{mathpar}
+
+The mobility judgment is defined inductively on the structure of $\tau$. Notably, command type is not mobile as it
+can contain encapsulated accesses to the assignable. In addition, function types are not mobile, as the expression
+in the body of the function may contain encapsulated commands.
+
+\boxed{\IsMobile{\tau}}
+\begin{mathpar}
+\Infer*[$M_\nattycst$]
+  {\strut}
+  {\IsMobile{\nattycst}}
+
+\Infer*[$M_\unittycst$]
+  {\strut}
+  {\IsMobile{\unittycst}}
+
+\Infer*[$M_\voidtycst$]
+  {\strut}
+  {\IsMobile{\voidtycst}}\\
+
+\Infer*[$M_{+}$]
+  {\IsMobile{\tau_1} \\ \IsMobile{\tau_2}}
+  {\IsMobile{\sumtycst{\tau_1}{\tau_2}}}
+
+\Infer*[$M_{\times}$]
+  {\IsMobile{\tau_1} \\ \IsMobile{\tau_2}}
+  {\IsMobile{\prodtycst{\tau_1}{\tau_2}}}
+\end{mathpar}
+
+\paragraph{Stack Machine Dynamics}
+
+Given program command $m$, the initial configuration executes $m$ against the empty stack, in the empty signature with
+an empty memory. This is exactly the same as before. Unlike $\LangMA$ with free assignables, the terminal state of the
+machine must be a return of value to the empty stack, with an \emph{empty} assignable signature and memory. This is
+because the assignables are scoped.
+
+\boxed{\IsInitial{\mathcal{M}}}
+\boxed{\IsFinal{\mathcal{M}}}
+\begin{mathpar}
+\Infer*[\RDynOf{\kw{init}}]
+  {\strut}
+  {\IsInitial{\CEvalM{\EmptyStack}{m}{\emptyset}{\emptyset}}}
+
+\Infer*[\RDynOf{\kw{fin}}]
+  {\IsVal{e}}
+  {\IsFinal{\CRetM{\EmptyStack}{e}{\emptyset}{\emptyset}}}
+\end{mathpar}
+
+Dynamics for execution of commands are provided in Fig.~\ref{fig:ma-stacked-dyn}. Rules again insist that principal
+expression be evaluated before the commands themselves. The sequencing command pushes a sequencing frame onto the stack.
+The declaration command pushes a declaration frame onto the stack, and extends the signature along with the memory.
+
+\begin{figure}
+\boxed{\mathcal{M} \StepsTo{} \mathcal{M}'}
+\begin{mathpar}
+\Infer*[\RDynOf{\kw{ret}}]
+  {e \StepsTo{} e'}
+  {\CEvalM{k}{\retcmdabt{e}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{k}{\retcmdabt{e'}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{1}{\kw{bnd}}]
+  {e \StepsTo{} e'}
+  {\CEvalM{k}{\seqcmdabt{e}{x}{m}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{k}{\seqcmdabt{e'}{x}{m}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{bnd}}]
+  {\strut}
+  {\CEvalM{k}{\seqcmdabt{\cmdabt{m}}{x}{m'}}{\Sigma}{\mu}
+     \StepsTo{}
+   \CEvalM{\ConsStack{\FrameBnd{x}{m'}}{k}}{m}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{1}{\kw{get}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\getvarabt{a}}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}
+      \StepsTo{}
+   \CRetM{k}{e}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}}
+
+\Infer*[\RDynIOf{1}{\kw{set}}]
+  {e \StepsTo{} e'}
+  {\CEvalM{k}{\setvarabt{a}{e}}{\Sigma, \HasSym{a}{\tau}}{\mu}
+      \StepsTo{}
+   \CEvalM{k}{\setvarabt{a}{e'}}{\Sigma, \HasSym{a}{\tau}}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{set}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\setvarabt{a}{e}}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e'}}
+      \StepsTo{}
+   \CRetM{k}{\unitexcst}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}}
+
+\Infer*[\RDynIOf{1}{\kw{dcl}}]
+  {e \StepsTo{} e'}
+  {\CEvalM{k}{\tnewvarabt{\tau}{e}{a}{m}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{k}{\tnewvarabt{\tau}{e'}{a}{m}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{dcl}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\tnewvarabt{\tau}{e}{a}{m}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{\ConsStack{\FrameDcl{a}}{k}}{m}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e}}}
+\end{mathpar}
+\caption{\LangMA{} with a stack machine dynamics}
+\label{fig:ma-stacked-dyn}
+\end{figure}
+
+The dynamics is much more interesting when the machine transitions into returning. The machine makes such
+transitions as it executes a $\retcmdcst{e}$ command (where $\IsVal{e}$). When it returns, it examines the top
+level stack. If the top stack represents a sequenced a command, it then transitions back to normal execution.
+If the top stack represents a declaration, then the associated assignable is de-allocated, and the machine
+continues to return. Such de-allocation is often called \emph{stack unwinding}.
+
+\boxed{\mathcal{M} \StepsTo{} \mathcal{M}'}
+\begin{mathpar}
+\Infer*[\RDynIOf{1}{\kw{mret}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\retcmdabt{e}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CRetM{k}{e}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{mret}}]
+  {\IsVal{e}}
+  {\CRetM{\ConsStack{\FrameBnd{x}{m}}{k}}{e}{\Sigma}{\mu} \StepsTo{} \CEvalM{k}{\Subst{e}{x}{m}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{3}{\kw{mret}}]
+  {\IsVal{e}}
+  {\CRetM{\ConsStack{\FrameDcl{a}}{k}}{e}{\Sigma, \HasSym{a}{\tau}}{\extff{\mu}{a}{e'}}
+      \StepsTo{}
+   \CRetM{k}{e}{\Sigma}{\mu}}
+\end{mathpar}
+
+\paragraph{Type Safety} The intermingling of language designs poses challenges to the safety of the language.
+It is not immediately obvious allocations are handled properly. Therefore, we will briefly consider the argument
+for type safety.
+
+The judgment $\boxed{\IsOK{\mathcal{M}}}$ asserts that the machine is well-formed. To define this judgment, we
+further define $\boxed{\IsOf{\mu}{\Sigma}}$, stating the memory is well-formed with respect to the signature $\Sigma$,
+and $\boxed{\entails[\Sigma]{\IsOfStack{k}{\tau}}}$, which states that under signature $\Sigma$, stack $k$ refutes $\tau$.
+
+The machine is well-formed if the command (in normal execution) or the expression (when returning) has the type
+refuted by a well-formed stack. The memory is well-formed, if it corresponds to the signature one-to-one, and
+every cell of contains an expression of the appropriate mobile type, typed in the \emph{empty} signature.
+The signature is empty as types of the cells are all mobile, and the judgment records this fact.
+
+\boxed{\IsOK{\mathcal{M}}}
+\boxed{\IsOf{\mu}{\Sigma}}
+\boxed{\entails[\Sigma]{\IsOfStack{k}{\tau}}}
+\begin{mathpar}
+\Infer[$\mathcal{M}_1$]
+  {\entails[\Sigma]{\IsOfStack{k}{\tau}} \\
+   \entails[\Sigma]{\IsOfM{m}{\tau}} \\
+   \IsOf{\mu}{\Sigma} \\
+  }
+  {\IsOK{\CEvalM{k}{m}{\Sigma}{\mu}}}
+
+\Infer[$\mathcal{M}_2$]
+  {\entails[\Sigma]{\IsOfStack{k}{\tau}} \\
+   \entails[\Sigma]{\IsOf{e}{\tau}} \\
+   \IsOf{\mu}{\Sigma} \\
+   \IsVal{e}
+  }
+  {\IsOK{\CRetM{k}{e}{\Sigma}{\mu}}}
+
+\Infer[$\mathcal{M}_3$]
+  {\forall_{a\in \Sigma}(~\entails[\emptyset]{\IsOf{\mu(a)}{\Sigma(a)}} \qquad \IsVal{\mu(a)} \qquad \IsMobile{\Sigma(a)}~) \\
+   \forall_{a \in \mu}(~a \in \Sigma)}
+  {\IsOf{\mu}{\Sigma}}\\
+
+\Infer[$K_1$]
+  {\strut}
+  {\entails[\emptyset]{\IsOfStack{\EmptyStack}{\tau}}}
+
+\Infer[$K_2$]
+  {\entails[\Sigma]{\IsOfStack{k}{\tau}} \\
+   \IsMobile{\tau}}
+  {\entails[\Sigma, \HasSym{a}{\tau'}]{\IsOfStack{\ConsStack{\FrameDcl{a}}{k}}{\tau}}}
+
+\Infer[$K_3$]
+  {\IsOf{x}{\tau} \entails[\Sigma]{\IsOfM{m}{\tau'}} \\
+   \entails[\Sigma]{\IsOfStack{k}{\tau'}}}
+  {\entails[\Sigma]{\IsOfStack{\ConsStack{\FrameBnd{x}{m}}{k}}{\tau}}}
+\end{mathpar}
+
+The role of the mobility judgment is further clarified with the following lemma, which states that
+closed values of mobile type cannot contain any assignables, therefore is well typed in the empty signature.
+The proof is a straightforward induction on both premises.
+
+\begin{lemma}[Validity of mobile values]\label{lem:mobval}
+If $\IsVal{e}$, $\cdot \entails[\Sigma]{\IsOf{e}{\tau}}$ and $\IsMobile{\tau}$, then $\cdot \entails[\emptyset]{\IsOf{e}{\tau}}$.
+\end{lemma}
+
+We are now ready to state the safety theorems:
+
+\begin{theorem}[Preservation] Preservation is stated for expression and commands
+\begin{itemize}
+\item (Expression) If $e \StepsTo{} e'$ and $\entails[\Sigma]{\IsOf{e}{\tau}}$ then $\entails[\Sigma]{\IsOf{e'}{\tau}}$.
+\item (Command) If $\mathcal{M} \StepsTo{} \mathcal{M}'$ and $\IsOK{\mathcal{M}}$ then $\IsOK{\mathcal{M}'}$.
+\end{itemize}
+\end{theorem}
+
+\task{15} Prove preservation for rules $\RDynIOf{3}{\kw{mret}}$, $\RDynIOf{1}{\kw{get}}$, $\RDynIOf{2}{\kw{set}}$ and $\RDynIOf{2}{\kw{dcl}}$.
+That is show preservation for (main rules of) $\kw{dcl}$, $\kw{set}$ and $\kw{get}$. Your proof only need to show
+important steps.
+
+\solution{ma-preservation}
+
+\begin{theorem}[Progress] Progress is also stated for expression and commands
+\begin{itemize}
+\item (Expression) If $\entails[\Sigma]{\IsOf{e}{\tau}}$ then $\IsVal{e}$ or $e \StepsTo{} e'$.
+\item (Command) If $\IsOK{\mathcal{M}}$ then $\IsFinal{\mathcal{M}}$ or $\mathcal{M} \StepsTo{} \mathcal{M}'$.
+\end{itemize}
+\end{theorem}
+
+\task{15} Prove the progress theorem for rule $\mathcal{M}_2$, and $\mathcal{M}_1$ when $m$ is $\kw{get}$ or $\kw{set}$.
+
+\solution{ma-progress}
+
+\subsection{An \kw{exit} from traditions}
+
+% With the introduction of an explicit control stack it is only natural to further consider other commands that
+% influences the control flow.
+% specifically a command that ``captures'' the current stack as a value, and returning to it later
+% on. This path would lead to introducing two commands, $\letccabt{\tau}{x}{m}$ and
+% $\throwcst{\tau}{e_1}{e_2}$ (along with necessary changes to expressions), characterized by the following dynamics:
+
+% \begin{mathpar}
+% \Infer*
+%  {\strut}
+%  {\CEvalM{k}{\letccabt{\tau}{x}{m}}{\Sigma}{\mu} \StepsTo{} \CEvalM{k}{\Subst{\contexabt{k}}{x}{m}}{\Sigma}{\mu}}
+
+% \Infer*
+%  {\IsVal{e}}
+%  {\CEvalM{k'}{\throwabt{\tau'}{e}{\contexcst{k}}}{\Sigma}{\mu} \StepsTo{} \CRetM{k}{e}{\Sigma}{\mu}}
+% \end{mathpar}
+
+% Unfortunately, \emph{this is not type-safe}. The immediate issue is that $e$ could contain uses of local assignables,
+% or worse, continuations themselves. This can be fixed by \emph{demanding} the refuted type $\tau$ in $\kw{letcc}$
+% to be mobile, and categorizing the continuation type to be \emph{not} mobile.
+
+% \task{10} However, the language remains unsafe with these fixes. Explain why it is still unsafe, and define a program
+% that exhibits unsafe behavior.
+
+% \solution{ma-unsafe-letcc}
+
+With the introduction of an explicit control stack it is only natural to further consider other commands that
+influences the control flow. The difficulty is that any such command must be made to play-well with the scoped
+assignables design: that is when they redirect control flow, outstanding allocation must be taken care of.
+
+The intermixing of control and assignable stack provides us a surprisingly simple solution. One trick that works
+is to piggy-back the transfer of control on the declaration command. The idea is that assignables, when declared,
+serves as a ``label'' that marks the block of code it is declared in. Later on we can choose to ``exit from''
+the block, or we can ``retry'' the block but perhaps with the assignable initialized to a different value.
+
+The changes to syntax is listed below. Upon declaring an assignable for a scope, the signature now additionally
+records the return type of the command within that scope.
+$$
+\Sigma, \HasSymK{a}{\tau}{\tau'}
+$$
+
+This signature contains the assignable $a$, and marks the command that $a$ is declared in expects to produce a
+value of type $\tau'$. In other words, its \emph{continuation} expects $\tau'$.
+
+Two new commands are introduced
+
+\begin{itemize}
+  \item The command $\exitcmdabt{\tau}{a}{e}$ transfers the control out of the scope where $a$
+        is declared in, with a value $e$. It behaves likes a forward \code{goto}.
+  \item The command $\retrycmdabt{\tau}{a}{e}$ transfer the control to be beginning of the command where
+        $a$ is declared in and re-initialize $a$ with $e$. It behaves like a backward \code{goto}.
+\end{itemize}
+
+New machine form $\CExitM{k}{a}{e}{\Sigma}{\mu}$ and $\CRetryM{k}{a}{e}{\Sigma}{\mu}$ states that the machine
+is in the process of transferring control towards (or out of) $a$ with expression $e$.
+
+In addition, be advised that the declaration frame in addition records the associated command.
+
+\begin{synchart}{syn:ma-stack-letcc}
+  \Sort{Cmd}    & m      & \bnfdef & \cdots                              & \cdots                                 & \text{other commands} \\
+                &        & \bnfalt & \tdclccabt{\tau}{\tau'}{e}{a}{m}    & \tdclcccst{\tau}{\tau}{e}{a}{m}        & \text{declare} \\
+                &        & \bnfalt & \exitcmdabt{\tau}{a}{e}            & \exitcmdabt{\tau}{a}{e}               & \text{exit from scope} \\
+                &        & \bnfalt & \retrycmdabt{\tau}{a}{e}         & \retrycmdabt{\tau}{a}{e}            & \text{retry in scope} \\
+  \\
+  \Sort{Stack} & k    & \bnfdef   & \cdots                               & \cdots                                 & \text{as before} \\
+               &      & \bnfalt   & \ConsStack{\FrameDclM{a}{m}}{k}     & \ConsStack{\FrameDclM{a}{m}}{k}         & \text{allocation frame} \\
+  \\
+  \Sort{Mach}  & \mathcal{M}  & \bnfdef   & \cdots                          & \cdots                              & \text{as before} \\
+               &              & \bnfalt   & \CExitM{k}{a}{e}{\Sigma}{\mu}  & \CExitM{k}{a}{e}{\Sigma}{\mu}      & \text{exit from $a$ with $e$} \\
+               &              & \bnfalt   & \CRetryM{k}{a}{e}{\Sigma}{\mu}   & \CRetryM{k}{a}{e}{\Sigma}{\mu}       & \text{retry with $a := e$} \\
+\end{synchart}
+
+Why are these useful? For example in Fig.~\ref{fig:isprime}, this allows us, to borrow the concrete syntax from last part,
+to code up the following program to test primality of a natural number. The $\exitcmdabt{\tau}{a}{e}$ allow us
+to exit early from the loop the moment we have found a divisor.
+
+\begin{figure}[h]
+\begin{codeblock}
+/* If n is not prime, returns a divisor */
+fun is_prime (n : nat) : cmd[unit + nat] =
+  cmd {
+    local i := 1 in {
+      while ([i](i < n)) {
+        if [i](n mod i = 0) then {
+          exit[i](inr[unit + nat](i))
+        } else {
+          [i] { set i := i + 1 }
+        }
+      },
+      ret (inl[unit + nat](<>))
+    }
+  }
+\end{codeblock}
+\caption{Primality test with early exit}
+\label{fig:isprime}
+\end{figure}
+
+In Fig.~\ref{fig:simplify}, the code simplifies proper fractions, given by a pair of natural numbers, without using \kw{gcd}.
+Given a pair $p$, the code test divides $p$ with ever-increasing integers. If a divisor is found then
+it goes back to where $p$ is initially declared by $\retrycmdabt{\tau}{p}{\cdots}$ with now simplified
+fraction. If the divisor reaches the numerator, the fraction is then at its simplest.
+
+\begin{figure}[h]
+\begin{codeblock}
+fun simplify (p0 : nat * nat)  : cmd[nat * nat] =
+  cmd{
+      local p := p0 in
+      local i := 2 in {
+        cmdlet n = [p](p.l) in
+        cmdlet d = [p](p.r) in
+        if [i](i = n) then {
+          ret (<n, d>)
+        } else {
+          if [i](i mod n = 0 && i mod d = 0) then {
+            [i] { retry[p](<n / i, d / i>)}
+          } else {
+            [i] { set i := i + 1 }
+          }
+        }
+      }
+  }
+\end{codeblock}
+\caption{Simplifying proper fractions}
+\label{fig:simplify}
+\end{figure}
+
+\paragraph{Statics} The mobility requirement in \kw{dcl} ensures that both $\kw{exit}$ and $\kw{continue}$
+command cannot be abused to smuggle assignables out of their scope. Given $\HasSymK{a}{\tau}{\tau'}$,
+The $\exitcmdabt{\tau}{a}{e}$ exits the scope of $a$ with $\IsOf{e}{\tau'}$, and $\retrycmdabt{\tau}{a}{e}$
+re-initializes $a$ with $\IsOf{e}{\tau}$. Both commands abandon their current continuation,
+therefore itself is a command of arbitrary type $\tau_c$.
+
+\boxed{\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}
+\begin{mathpar}
+\Infer*[\RCmdOf{\kw{get}}]
+  {\strut}
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOfM{\getvarabt{a}}{\tau}}}
+
+\Infer*[\RCmdOf{\kw{set}}]
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOfM{\setvarabt{a}{e}}{\unittycst}}}
+
+\Infer*[\RCmdOf{\kw{dcl}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\tau}} \\
+   \Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOfM{m}{\tau'}} \\
+   \IsMobile{\tau} \\
+   \IsMobile{\tau'}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\tdclccabt{\tau}{\tau'}{e}{a}{m}}{\tau'}}}
+
+\Infer*[\RCmdOf{\kw{exit}}]
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOf{e}{\tau'}}}
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOfM{\exitcmdabt{\tau_c}{a}{e}}{\tau_c}}}
+
+\Infer*[\RCmdOf{\kw{continue}}]
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma, \HasSymK{a}{\tau}{\tau'}]{\IsOfM{\retrycmdabt{\tau_c}{a}{e}}{\tau_c}}}
+\end{mathpar}
+
+\paragraph{Dynamics} The dynamics of the language are updated to support the two new commands.
+The declaration frame is updated to include the associated command $m$.
+
+Executing either new commands puts the machine into a back-tracking mode. When in back-tracking,
+the machine examines the top stack frame. For both commands, it throws away the sequencing frame.
+These are captured by the following rules.
+
+\boxed{\mathcal{M} \StepsTo{} \mathcal{M}'}
+\begin{mathpar}
+\Infer*[\RDynIOf{2}{\kw{dcl}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\tdclccabt{\tau}{\tau'}{e}{a}{m}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{\ConsStack{\FrameDclM{a}{m}}{k}}{m}{\Sigma, \HasSymK{a}{\tau}{\tau'}}{\extff{\mu}{a}{e}}}
+
+\Infer*[\RDynIOf{1}{\kw{exit}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\exitcmdabt{\tau}{a}{e}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CExitM{k}{a}{e}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{exit}}]
+  {e \StepsTo{} e'}
+  {\CEvalM{k}{\exitcmdabt{\tau}{a}{e}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{k}{\exitcmdabt{\tau}{a}{e'}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{1}{\kw{retry}}]
+  {\IsVal{e}}
+  {\CEvalM{k}{\retrycmdabt{\tau}{a}{e}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CRetryM{k}{a}{e}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{retry}}]
+  {e \StepsTo{} e'}
+  {\CEvalM{k}{\retrycmdabt{\tau}{a}{e}}{\Sigma}{\mu}
+      \StepsTo{}
+   \CEvalM{k}{\retrycmdabt{\tau}{a}{e'}}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{exit}}]
+  {\strut}
+  {\CExitM{\ConsStack{\FrameBnd{x}{m}}{k}}{a}{e}{\Sigma}{\mu}
+      \StepsTo{}
+   \CExitM{k}{a}{e}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{2}{\kw{retry}}]
+  {\strut}
+  {\CRetryM{\ConsStack{\FrameBnd{x}{m}}{k}}{a}{e}{\Sigma}{\mu}
+      \StepsTo{}
+   \CRetryM{k}{a}{e}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{4}{\kw{exit}}]
+  {\strut}
+  {\CExitM{\ConsStack{\FrameDclM{b}{m}}{k}}{a}{e}{\Sigma, \HasSymK{b}{\tau'}{\tau}}{\extff{\mu}{b}{e'}}
+      \StepsTo{}
+   \CExitM{k}{a}{e}{\Sigma}{\mu}}
+
+\Infer*[\RDynIOf{4}{\kw{retry}}]
+  {\strut}
+  {\CRetryM{\ConsStack{\FrameDclM{b}{m}}{k}}{a}{e}{\Sigma, \HasSymK{b}{\tau'}{\tau}}{\extff{\mu}{b}{e'}}
+      \StepsTo{}
+   \CRetryM{k}{a}{e}{\Sigma}{\mu}}
+\end{mathpar}
+
+For a non-matching declaration frame, both commands de-allocates the assignable and remains in backtracking.
+
+\task{10} Complete the dynamics by defining the rules for the 2 remaining case where the top frame is a
+matching declaration frame.
+
+\solution{ma-exit-retry-dyn}
+
+\paragraph{Recovering the loop}
+Another common feature in imperative languages is that (\kw{while}) loops often supports
+two commands that affects control flow within the loop body
+\begin{itemize}
+\item $\kw{continue}$: Skips over the remaining commands in the current iteration, and
+\item $\kw{break}$: Exits the loop immediately.
+\end{itemize}
+
+In some languages these commands carries an extra operand, usually in the form of a
+label, signaling which layer of loop to break from (or continue with) in the case of being
+used in a nested loop.
+
+With the mechanism available we can implement both of these commands. You will define three commands:
+$\whilexcmdcst{m}{x}{m_1}$, $\continuecmdcst{\tau}{x}$ and $\breakcmdcst{\tau}{x}$, where $\IsOf{x}{\lptycst}$
+is an expression that identifies the runtime incarnation of the loop.
+
+\begin{mathpar}
+\Infer*
+  {\Gamma \entails[\Sigma]{\IsOfM{m}{\booltycst}} \\
+   \Gamma, \IsOf{x}{\lptycst} \entails[\Sigma]{\IsOfM{m_1}{\unittycst}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\whilexcmdcst{m}{x}{m_1}}{\unittycst}}}\\
+
+\Infer*
+   {\strut}
+   {\Gamma, \IsOf{x}{\lptycst} \entails[\Sigma]{\IsOfM{\continuecmdcst{\tau}{x}}{\tau}}}
+
+\Infer*
+   {\strut}
+   {\Gamma, \IsOf{x}{\lptycst} \entails[\Sigma]{\IsOfM{\breakcmdcst{\tau}{x}}{\tau}}}
+\end{mathpar}
+
+For example, in the following code, the $\kw{break}$ would break from the outer loop (i.e. completely
+break out of both loops), as the argument $x$ comes from the outer loop, therefore identifies it.
+$$
+\whilexcmdcst{m_1}{x}{\whilexcmdcst{m_2}{y}{(\semicmdcst{\cdots}{\breakcmdcst{\unittycst}{x}})}}
+$$
+
+Similarly, here the $\kw{continue}$ would skip to the next iteration of the inner loop
+$$
+\whilexcmdcst{m_1}{x}{\whilexcmdcst{m_2}{y}{(\semicmdcst{\cdots}{\semicmdcst{\continuecmdcst{\unittycst}{y}}{\cdots}})}}
+$$
+
+Having the loop identified by an expression (which is a runtime value, contrary to ``static'' labels) means that
+it is possible to pass the break point as an argument to functions, providing more flexibility than afforded
+by languages in practice.
+
+\task{20} Define $\lptycst$ and the three commands with the $\kw{exit}$ and $\kw{retry}$ commands.
+
+\solution{ma-loop}
+
+
+\appendix
+
+\section{Concrete Syntax of \LangMA{}}\label{appendix:MA}
+
+A subset of concrete syntax of \LangMA{} is given below.
+\begin{figure}[!h]
+  \begin{synchart}{syn:free-ma}
+  \TypeSort     & \tau   & \bnfdef & \cdots                     & \cdots                        & \text{everything else}        \\
+                    &        & \bnfalt & \gcmdtycst{\tau}           & \code{cmd[tau]}               & \text{command types}          \\
+  \\
+  \ExprSort     & e      & \bnfdef & \cdots                     & \cdots                        & \text{everything else}        \\
+                    &        & \bnfalt & \cmdabt{m}                 & \code{cmd { m }}              & \text{encapsulated commands}  \\
+  \\
+  \Sort{Cmd}    & m      & \bnfdef & \retcmdabt{e}              & \code{ret (e)}                & \text{return} \\
+                &        & \bnfalt & \seqcmdabt{e}{x}{m}        & \code{bndcmdexp x = e in m}   & \text{bind command} \\
+                &        & \bnfalt & \tnewvarabt{\tau}{e}{a}{m} & \code{local a := e in m}      & \text{declare new assignable} \\
+                &        & \bnfalt & \getvarabt{a}              & \code{get a}                  & \text{get variable} \\
+                &        & \bnfalt & \setvarabt{a}{e}           & \code{set a := e}             & \text{set variable} \\
+  \end{synchart}
+  \caption{\LangMA{} Concrete Syntax}
+  \label{fig:ma-concrete}
+\end{figure}
+
+We also provide you some syntactic sugar, some of which you need to implement.
+\begin{enumerate}
+  \item \code{do (e)} is defined as $\seqcmdabt{e}{x}{\retcmdabt{x}}$.
+  \item \code{cmdlet x = m1 in m2} is defined as $\seqcmdabt{\cmdabt{m_1}}{x}{m_2}$.
+  \item Concrete syntax for $\ifcmdcst{m}{m_1}{m_2}$ is \code{if m then m1 else m2}, which
+  is the same concrete syntax for the expression level \kw{if}.
+  \item Concrete syntax for $\whilecmdcst{m}{m_1}$ is \code{while (m) \{ m1 \}}.
+  \item Concrete syntax for $\semicmdcst{m_1}{m_2}$ is \code{m1, m2}.
+  \item Concrete syntax for $\ignorecmdcst{m}$ is \code{ignore m}.
+\end{enumerate}
+
+If you have an assignable and you want to use its content to perform some computation, in our core language you need to do
+\begin{codeblock}
+  local a := 1 in
+  local b := 2 in {
+    bndcmdexp x = cmd { get a } in
+      bndcmdexp y = cmd { get b } in
+        ret (x + y)
+  }
+\end{codeblock}
+This can be cumbersome to write once we have more assignables, so we provide a syntactic sugar for this.
+\begin{enumerate}
+  \item \code{[x, y] ( e )} where \code{x} and \code{y} are assignables, is expanded into
+  $$\seqcmdabt{\cmdabt{\getvarabt{x}}}{x}{\seqcmdabt{\cmdabt{\getvarabt{y}}}{y}{\retcmdabt{e}}}$$
+  More precisely, in the bracket is a list of assignables, and we bind them sequentially to variables (!) of the same name,
+  and then later on we can use the variables as expressions.
+
+  \item \code{[x, y] \{ m \}} where \code{x} and \code{y} are assignables, is expanded into
+  $$\seqcmdabt{\cmdabt{\getvarabt{x}}}{x}{\seqcmdabt{\cmdabt{\getvarabt{y}}}{y}{m}}$$.
+\end{enumerate}
+
+So the previous example can be written as
+\begin{codeblock}
+  local a := 1 in
+  local b := 2 in
+    [a, b] (a + b)
+\end{codeblock}
+
+\section{Statics for $\LangMA{}$ with \emph{scoped} assignables}
+
+The expression level is completely standard
+
+\boxed{\Gamma \entails[\Sigma]{\IsOf{e}{\tau}}}
+\begin{mathpar}
+\cdots
+
+\Infer*[\RIntroOf{\kw{cmd}}]
+  {\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOf{\cmdabt{m}}{\gcmdtycst{\tau}}}}
+\end{mathpar}
+
+\boxed{\Gamma \entails[\Sigma]{\IsOfM{m}{\tau}}}
+\begin{mathpar}
+\Infer*[\RCmdOf{\kw{ret}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\retcmdabt{e}}{\tau}}}
+
+\Infer*[\RCmdOf{\kw{bnd}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\gcmdtycst{\tau'}}} \\
+   \Gamma, \IsOf{x}{\tau'} \entails[\Sigma]{\IsOfM{m}{\tau}}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\seqcmdabt{e}{x}{m}}{\tau}}} \\
+
+\Infer*[\RCmdOf{\kw{get}}]
+  {\strut}
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{\getvarabt{a}}{\tau}}}
+
+\Infer*[\RCmdOf{\kw{set}}]
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOf{e}{\tau}}}
+  {\Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{\setvarabt{a}{e}}{\unittycst}}}
+
+\Infer*[\RCmdOf{\kw{dcl}}]
+  {\Gamma \entails[\Sigma]{\IsOf{e}{\tau}} \\
+   \Gamma \entails[\Sigma, \HasSym{a}{\tau}]{\IsOfM{m}{\tau'}} \\
+   \IsMobile{\tau} \\
+   \IsMobile{\tau'}}
+  {\Gamma \entails[\Sigma]{\IsOfM{\tnewvarabt{\tau}{e}{a}{m}}{\tau'}}}
+\end{mathpar}
+
+\boxed{\IsMobile{\tau}}
+\begin{mathpar}
+\Infer*[$M_\nattycst$]
+  {\strut}
+  {\IsMobile{\nattycst}}
+
+\Infer*[$M_\unittycst$]
+  {\strut}
+  {\IsMobile{\unittycst}}
+
+\Infer*[$M_\voidtycst$]
+  {\strut}
+  {\IsMobile{\voidtycst}}\\
+
+\Infer*[$M_{+}$]
+  {\IsMobile{\tau_1} \\ \IsMobile{\tau_2}}
+  {\IsMobile{\sumtycst{\tau_1}{\tau_2}}}
+
+\Infer*[$M_{\times}$]
+  {\IsMobile{\tau_1} \\ \IsMobile{\tau_2}}
+  {\IsMobile{\prodtycst{\tau_1}{\tau_2}}}
+\end{mathpar}
+
+\boxed{\IsOK{\mathcal{M}}}
+\boxed{\IsOf{\mu}{\Sigma}}
+\boxed{\entails[\Sigma]{\IsOfStack{k}{\tau}}}
+\begin{mathpar}
+\Infer[$\mathcal{M}_1$]
+  {\entails[\Sigma]{\IsOfStack{k}{\tau}} \\
+   \entails[\Sigma]{\IsOfM{m}{\tau}} \\
+   \IsOf{\mu}{\Sigma} \\
+  }
+  {\IsOK{\CEvalM{k}{m}{\Sigma}{\mu}}}
+
+\Infer[$\mathcal{M}_2$]
+  {\entails[\Sigma]{\IsOfStack{k}{\tau}} \\
+   \entails[\Sigma]{\IsOf{e}{\tau}} \\
+   \IsOf{\mu}{\Sigma} \\
+   \IsVal{e}
+  }
+  {\IsOK{\CRetM{k}{e}{\Sigma}{\mu}}}
+
+\Infer[$\mathcal{M}_3$]
+{\forall_{a\in \Sigma}(~\entails[\emptyset]{\IsOf{\mu(a)}{\Sigma(a)}} \qquad \IsVal{\mu(a)} \qquad \IsMobile{\Sigma(a)}~) \\
+  \forall_{a \in \mu}(~a \in \Sigma)}
+{\IsOf{\mu}{\Sigma}}\\
+
+\Infer[$K_1$]
+  {\strut}
+  {\entails[\emptyset]{\IsOfStack{\EmptyStack}{\tau}}}
+
+\Infer[$K_2$]
+  {\entails[\Sigma]{\IsOfStack{k}{\tau}} \\
+   \IsMobile{\tau}}
+  {\entails[\Sigma, \HasSym{a}{\tau'}]{\IsOfStack{\ConsStack{\FrameDcl{a}}{k}}{\tau}}}
+
+\Infer[$K_3$]
+  {\IsOf{x}{\tau} \entails[\Sigma]{\IsOfM{m}{\tau'}} \\
+   \entails[\Sigma]{\IsOfStack{k}{\tau'}}}
+  {\entails[\Sigma]{\IsOfStack{\ConsStack{\FrameBnd{x}{m}}{k}}{\tau}}}
+\end{mathpar}
+
+
+
+
+\ifthenelse{\value{taskPercentCounter} = 200}{\typeout{Good: The points adds to 200.}}
+{\typeout{Warning: 200 POINTS ADDS UP TO
+\arabic{taskPercentCounter} WHICH IS NOT 200. You probably want to
+correct the points.}}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

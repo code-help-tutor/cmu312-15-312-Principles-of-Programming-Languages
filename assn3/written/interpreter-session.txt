@@ -1,0 +1,49 @@
+WeChat: cstutorcs
+QQ: 749389476
+Email: tutorcs@163.com
+DPCF Interpreter Session:
+
+$ rlwrap sml -m dyn/sources.cm
+- TopLevel.repl ();
+->use "tests/proj.dyn";
+ |--> (Proj ((Pair ((Proj ((Pair ((Num 4), (S (S Z)))), R)), (S Z))), L))
+->step;
+ |--> (Proj ((Pair ((Proj ((Pair ((Num 4), (S (S (Num 0))))), R)), (S Z))), L))
+->step;
+ |--> (Proj ((Pair ((Proj ((Pair ((Num 4), (S (Num 1)))), R)), (S Z))), L))
+->eval;
+ (Num 2) VAL
+->step (s (s 10));
+ |--> (S (Num 11))
+->step;
+ |--> (Num 12)
+->step;
+ (Num 12) VAL
+
+Translation Interpreter Session:
+
+$ rlwrap sml -m fpc/sources.cm
+- TopLevel.repl ();
+->use "dyn/tests/proj.dyn";
+ |--> (Case ((Case ((Case ((Case ((Inj ((Sum [(None@7, (Prod [])), (Some@8, .....
+...
+(truncated)
+...
+->step;
+...
+(truncated)
+...
+->eval;
+(Inj ((Sum [(None@7, (Prod [])), (Some@8, (Rec (t@1685 . (Sum [(.....
+...
+(truncated)
+...
+->trans z;
+ |--> (Inj ((Sum [(None@7, (Prod [])), (Some@8, (Rec (t@1699 . (Sum [(.....
+...
+(truncated)
+...
+->step;
+ (Inj ((Sum [(None@7, (Prod [])), (Some@8, (Rec (t@1713 . (Sum [(.....
+...
+(truncated) ...

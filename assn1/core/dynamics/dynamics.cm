@@ -1,0 +1,21 @@
+Group
+  signature STATE
+  functor TransitionState
+  functor TransitionErrorState
+
+  signature DYNAMICS
+
+  signature EVALUATOR
+  functor ContEvaluator
+is
+  ../../cmlib/cmlib.cm
+  ../common/common.cm
+
+  state.sig
+  state-transition.fun
+  state-transition-error.fun
+
+  dynamics.sig
+
+  evaluator.sig
+  evaluator-cont.fun

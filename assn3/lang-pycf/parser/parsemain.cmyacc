@@ -1,0 +1,88 @@
+sml
+name ParseMain
+
+terminal IDENT of string
+
+terminal NUMBER of int
+terminal BOOLCONST of bool
+
+terminal LBRACKET
+terminal RBRACKET
+terminal LPAREN
+terminal RPAREN
+
+terminal COLON
+terminal COMMA
+terminal EQUAL
+terminal PLUS
+terminal LEQ
+terminal SEMICOLON
+
+terminal DEF
+terminal ISINSTANCE
+terminal LEN
+terminal IF
+terminal ELSE
+terminal LAMBDA
+terminal RETURN
+
+terminal IFNAME
+terminal PRINT
+
+terminal BOOL
+terminal INT
+terminal LIST
+terminal FUN
+
+nonterminal Class : class =
+  BOOL => class_bool
+  INT => class_int
+  LIST => class_list
+  FUN => class_fun
+
+nonterminal Objectseq : objectseq =
+/* epsilon */ => objectseq_nil
+COMMA => objectseq_nil  /* allow trailing comma */
+COMMA 1:Object 2:Objectseq => objectseq_cons
+
+nonterminal ObjectAtom : object =
+  LPAREN 1:Object RPAREN => object_id
+  1:IDENT => object_var
+  1:NUMBER => object_int
+  1:BOOLCONST => object_bool
+  LBRACKET RBRACKET => object_nil
+  LBRACKET 1:Object 2:Objectseq RBRACKET => object_cons
+  LEN LPAREN 1:Object RPAREN => object_len
+  ISINSTANCE LPAREN 1:Object COMMA 2:Class RPAREN => object_isinstance
+  1:ObjectAtom LBRACKET 2:Object RBRACKET => object_index
+  1:ObjectAtom LPAREN 2:Object RPAREN => object_ap
+
+nonterminal ObjectPlus : object =
+  1:ObjectAtom => object_id
+  1:ObjectPlus PLUS 2:ObjectAtom => object_plus
+
+nonterminal ObjectLeq : object =
+  1:ObjectPlus => object_id
+  1:ObjectPlus LEQ 2:ObjectPlus => object_leq
+
+nonterminal ObjectIf : object =
+  1:ObjectLeq => object_id
+  2:ObjectLeq IF 1:Object ELSE 3:Object => object_if precr 0
+
+nonterminal Object : object =
+  1:ObjectIf => object_id
+  LAMBDA 1:IDENT COLON 2:Object => object_lam
+
+nonterminal Declseq : declseq =
+  /* epsilon */ => declseq_nil
+  1:Decl 2:Declseq => declseq_cons
+
+nonterminal Decl : decl =
+  1:IDENT EQUAL 2:Object => decl_assign
+  DEF 1:IDENT LPAREN 2:IDENT RPAREN COLON 3:Declseq RETURN 4:Object => decl_def
+
+nonterminal Prog : prog =
+  1:Object => prog_id
+  1:Declseq IFNAME PRINT LPAREN 2:Object RPAREN => prog_mk
+
+start Prog

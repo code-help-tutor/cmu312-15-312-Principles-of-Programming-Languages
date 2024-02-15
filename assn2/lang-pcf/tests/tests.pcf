@@ -1,0 +1,18 @@
+fun f (m : nat) : nat -> nat is
+  fun g (n : nat) : nat is
+    ifz n {
+    | z => m
+    | s x => s (g x )
+    }
+;
+
+(fun f (m : nat) : nat -> nat is
+  fun g (n : nat) : nat is
+    ifz n {
+    | z => m
+    | s x => s (g x)
+    }) 2 3;
+
+(fun f (x : nat) : nat is x) (s (s z));
+
+(fun f (x : nat) : nat is f x) z;

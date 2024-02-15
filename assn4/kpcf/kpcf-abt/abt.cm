@@ -1,0 +1,9 @@
+Library
+  library(../../shared-abt/shared-abt.cm)
+  signature KPCF
+  structure KPCF
+is
+  ../../cmlib/cmlib.cm
+  ../../shared-abt/shared-abt.cm
+  kpcf.abt.sig
+  kpcf.abt.sml

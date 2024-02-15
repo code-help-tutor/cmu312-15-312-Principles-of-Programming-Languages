@@ -1,0 +1,35 @@
+def tail(l):
+    def loop(i):
+        return [] if len(l) <= i else [l[i]] + loop(i + 1)
+
+    return loop(1)
+
+
+def partition(f):
+    def loop(l):
+        def aux(i):
+            def insert(args):
+                x = args[0]
+                rest = args[1]
+                return [[x] + rest[0], rest[1]] if f(x) else [rest[0], [x] + rest[1]]
+
+            return [[], []] if len(l) <= i else insert([l[i], aux(i + 1)])
+
+        return aux(0)
+
+    return loop
+
+
+# Sort list via quicksort.
+def quicksort(l):
+    def helper(_):
+        x = l[0]
+        xs = tail(l)
+        results = partition(lambda y: y <= x)(xs)
+        return quicksort(results[0]) + [x] + quicksort(results[1])
+
+    return l if len(l) <= 1 else helper(0)
+
+
+if __name__ == "__main__":
+    print(quicksort([150, 122]))

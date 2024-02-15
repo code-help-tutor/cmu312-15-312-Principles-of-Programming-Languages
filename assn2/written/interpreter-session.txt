@@ -1,0 +1,21 @@
+WeChat: cstutorcs
+QQ: 749389476
+Email: tutorcs@163.com
+- TopLevel.repl();
+->eval (fix sum : nat->nat->nat is (lam x : nat => lam y : nat => ifz x {z => y |
+s (u) => s(sum u y)}) )  (s(z)) (s(s(z)));
+Statics : exp has type : nat
+ s(s(s(z))) VAL
+
+->eval (case inl[nat,void](z) { inl (x) => (s(x),x) | inr(p) => abort[nat*nat](p)});
+Statics : exp has type : prod(nat, nat)
+ pair(s(z), z) VAL
+
+->eval prl((z,s(z)));
+Statics : exp has type : nat
+ z VAL
+
+->eval inr[nat,unit](());
+Statics : exp has type : sum(nat, unit)
+ inr[unit; unit](triv) VAL
+

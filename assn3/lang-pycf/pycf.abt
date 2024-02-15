@@ -1,0 +1,24 @@
+abt bool
+abt int
+
+abt class =
+| Bool
+| Int
+| List
+| Fun
+
+sort object =
+| Bool of bool
+    (* (cond   , then   , else  ) *)
+| If of object * object * object
+| Int of int
+| Plus of object * object
+| LEq of object * object
+| List of object list
+       (* (list   , index ) *)
+| Index of object * object
+| Len of object
+| Fun of object binding . object binding . object
+| Ap of object * object
+| Let of object * (object binding . object)
+| IsInstance of object * class

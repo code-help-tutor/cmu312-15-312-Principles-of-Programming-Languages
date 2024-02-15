@@ -1,0 +1,94 @@
+sml
+name ParseMain
+
+terminal IDENT of string
+
+terminal NUMBER of int
+
+terminal LANGLE
+terminal RANGLE
+terminal LBRACE
+terminal RBRACE
+terminal LBRACKET
+terminal RBRACKET
+terminal LPAREN
+terminal RPAREN
+
+terminal ARROW precr 2
+terminal BAR
+terminal COLON
+terminal COMMA
+terminal DARROW
+terminal DOT
+terminal EQUAL
+terminal PLUS precr 4
+terminal STAR
+terminal SEMICOLON
+
+terminal INT
+terminal LEQ precr 3
+terminal REC
+terminal ERROR
+terminal IN
+terminal CASE
+terminal FN
+terminal FOLD
+terminal UNFOLD
+
+nonterminal Tyfield : tyfield =
+  1:IDENT COLON 2:Typ => tyfield_mk
+
+nonterminal Tyfieldseq : tyfieldseq =
+  /* epsilon */ => tyfieldseq_nil
+  1:Tyfield COMMA 2:Tyfieldseq => tyfieldseq_cons
+
+nonterminal Typ : typ =
+   INT => typ_int
+   LPAREN 1:Typ RPAREN => typ_id
+   LANGLE 1:Tyfieldseq RANGLE => typ_prod
+   LBRACKET 1:Tyfieldseq RBRACKET => typ_sum
+   1:Typ ARROW 2:Typ => typ_arrow
+   REC LPAREN 1:IDENT DOT 2:Typ RPAREN => typ_rec
+
+nonterminal BarOrNot : unittp =
+   /* epsilon */ => unittm
+   BAR => unittm
+
+nonterminal Case : casee =
+  BarOrNot 1:IDENT DOT 2:IDENT DARROW 3:ExpAtom => case_mk
+
+nonterminal Caseseq : caseseq =
+  /* epsilon */ => caseseq_nil
+  1:Case 2:Caseseq => caseseq_cons
+
+nonterminal Fieldseq : fieldseq =
+  /* epsilon */ => fieldseq_nil
+  1:IDENT EQUAL 2:Exp COMMA 3:Fieldseq => fieldseq_cons
+
+nonterminal ExpAtom : exp =
+   LPAREN 1:Exp RPAREN => exp_id
+   1:IDENT => exp_ident
+   ERROR LBRACKET 1:Typ RBRACKET => exp_error
+   1:NUMBER => exp_number
+   LANGLE 1:Fieldseq RANGLE => exp_tuple
+   CASE LBRACKET 1:Typ RBRACKET 2:Exp LBRACE 3:Caseseq RBRACE => exp_case
+
+nonterminal ExpApp : exp =
+   1:ExpAtom => exp_id
+   1:ExpApp 2:ExpAtom => exp_app
+   IN LBRACKET 1:IDENT RBRACKET LBRACE 2:Typ RBRACE 3:ExpAtom => exp_in
+   FOLD LBRACKET 1:IDENT DOT 2:Typ RBRACKET 3:ExpAtom => exp_fold
+   UNFOLD 1:ExpAtom => exp_unfold
+
+nonterminal ExpPost : exp =
+   1:ExpApp => exp_id
+   1:ExpPost DOT 2:IDENT => exp_proj
+
+nonterminal Exp : exp =
+   1:ExpPost => exp_id
+   1:ExpPost PLUS 2:ExpPost => exp_plus
+   1:ExpPost LEQ 2:ExpPost => exp_leq
+   FN LPAREN 1:IDENT COLON 2:Typ RPAREN DARROW 3:Exp => exp_fn
+   /*LET 1:IDENT COLON 2:Typ EQUAL 3:Exp IN 4:Exp => exp_let*/
+
+start Exp

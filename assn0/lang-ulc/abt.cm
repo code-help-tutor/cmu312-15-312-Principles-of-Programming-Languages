@@ -1,0 +1,9 @@
+Library
+  signature ULC
+  structure ULC
+is
+  ../cmlib/cmlib.cm
+  ../var/var.cm
+
+  ulc.abt.sig
+  ulc.abt.sml

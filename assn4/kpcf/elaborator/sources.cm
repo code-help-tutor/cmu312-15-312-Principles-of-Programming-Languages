@@ -1,0 +1,10 @@
+Library
+  signature ELABORATOR
+  structure Elaborator
+is
+  ../../cmlib/cmlib.cm
+  ../kpcf-abt/abt.cm
+  ../kpcfv-abt/abt.cm
+
+  elaborator.sig
+  elaborator.sml

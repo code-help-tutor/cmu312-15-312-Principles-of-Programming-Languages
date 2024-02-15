@@ -1,0 +1,11 @@
+Library
+  signature UNICODE
+  structure Unicode
+is
+  unicode.sig
+
+#if ascii = 1
+  unicode-ascii.sml
+#else
+  unicode.sml
+#endif

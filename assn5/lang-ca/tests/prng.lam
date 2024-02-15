@@ -1,0 +1,31 @@
+type prngmsg = chan[nat];
+type prng = chan[prngmsg];
+
+fun newprng (mod : nat) (seed : nat) : cmd[prng] =
+  cmd
+    newchan u ~ prngmsg in
+    val server =
+      let
+        fun server (state : nat) : cmd[unit] =
+          cmd(
+            val out = cmd(sync[u]) in
+              { emit(out, state)
+              , do(server (state * state % mod))
+              }
+          )
+      in
+        cmd(ret(server seed))
+      end
+    in
+      { spawn(server)
+      , ret(chan[u])
+      }
+;
+
+fun next (r : prng) : cmd[nat] =
+  cmd
+    newchan x ~ nat in {
+      emit(r, chan[x]),
+      sync[x]
+    }
+;

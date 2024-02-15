@@ -1,0 +1,3 @@
+fn (f : cont[B] -> cont[A]) => fn (a : A) =>
+  letcc[B] kb in
+  throw[B](f(kb), a)

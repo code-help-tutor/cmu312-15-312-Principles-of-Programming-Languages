@@ -1,0 +1,9 @@
+let plus is
+  fun plus (xy : (nat * nat)) : nat is
+      split xy is x, y in
+            ifz x { z    => y
+                  | s(p) => let t = plus(<p, y>) in s(t)
+                  }
+  in
+let q is s(s(s(z))) in
+  plus(<s(s(q)), q>)

@@ -1,0 +1,5 @@
+# Self application; `f(f)` loops infinitely.
+f = lambda x: x(x)
+
+if __name__ == "__main__":
+    print(f(f))

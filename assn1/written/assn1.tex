@@ -1,0 +1,763 @@
+\documentclass[11pt]{article}
+\usepackage[parfill]{parskip}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+
+\input{setup}
+\input{setup-assn1}
+\input{issolution}
+\input{defns}
+\usepackage{tikz}
+
+\title{Assignment 1: \\
+       Statics and Dynamics, Safety, and Finite Data Types}
+
+
+\begin{document}
+
+\maketitle
+
+On this assignment, you will implement the statics and dynamics of a simple programming language, \LangPSF{}, which has product, sum, and function types.
+You will also prove that the language is safe, showing some cases of progress and preservation.
+Finally, you will explore some curious connections to algebra and logic.
+
+
+\section[Introduction to PSF]{Introduction to \LangPSF{}}
+
+On this assignment, we will be working with \LangPSF{}\footnote{Creatively standing for ``products, sums, and functions''.}, a programming language with products, sums, and functions.
+
+\begin{synchart}{psf}
+  \TypeSort{} & \tau & \bnfdef & \arrtyabt{\tau_1}{\tau_2}                           & \arrtycst{\tau_1}{\tau_2}                         & \text{function} \\
+              &      & \bnfalt & \unittyabt                                          & \unittycst                                        & \text{nullary product} \\
+              &      & \bnfalt & \prodtyabt{\tau_1}{\tau_2}                          & \prodtycst{\tau_1}{\tau_2}                        & \text{binary product} \\
+              &      & \bnfalt & \voidtyabt                                          & \voidtycst                                        & \text{nullary sum} \\
+              &      & \bnfalt & \sumtyabt{\tau_1}{\tau_2}                           & \sumtycst{\tau_1}{\tau_2}                         & \text{binary sum} \\
+  \ExprSort{} & e    & \bnfdef & x                                                   & x                                                 & \text{variable} \\
+              &      & \bnfalt & \lamabt{\tau_1}{x}{e_2}                             & \lamcst{\tau_1}{x}{e_2}                           & \text{abstraction} \\
+              &      & \bnfalt & \appabt{e}{e_1}                                     & \appcst{e}{e_1}                                   & \text{application} \\
+              &      & \bnfalt & \unitexabt                                          & \unitexcst                                        & \text{nullary tuple} \\
+              &      & \bnfalt & \pairexabt{e_1}{e_2}                                & \pairexcst{e_1}{e_2}                              & \text{binary tuple} \\
+              &      & \bnfalt & \fstexabt{e}                                        & \fstexcst{e}                                      & \text{left projection} \\
+              &      & \bnfalt & \sndexabt{e}                                        & \sndexcst{e}                                      & \text{right projection} \\
+              &      & \bnfalt & \absurdexabt{\tau}{e}                               & \absurdexcst{\tau}{e}                              & \text{nullary case analysis} \\
+              &      & \bnfalt & \inlexabt{\tau_1}{\tau_2}{e}                        & \inlexcst{\tau_2}{e}                              & \text{left injection} \\
+              &      & \bnfalt & \inrexabt{\tau_1}{\tau_2}{e}                        & \inrexcst{\tau_2}{e}                              & \text{right injection} \\
+              &      & \bnfalt & \caseexabt{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}   & \caseexcst{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2} & \text{binary case analysis} \\
+\end{synchart}
+
+The statics and dynamics of \LangPSF{} are given in \cref{sec:statics,sec:dynamics}, respectively.
+
+
+\section{Statics}
+
+Just like \LangExpr{}, we define the static semantics of \LangPSF{} via judgment ${\Gamma \entails \IsOf{e}{\tau}}$, where $\Gamma$ is the \emph{context}, $e$ is an \emph{expression}, and $\tau$ is a \emph{type}.
+The rules defining this judgment are given in \cref{sec:statics}.
+
+\subsection{Implementation}
+
+On the previous assignment, you implemented an ABT structure for working with $\alpha$-equivalence classes of terms.
+On this and all subsequent assignments, we will provide you with the analogous structures for the languages we will study, as promised.
+Importantly, you need only worry about the signature \code{PSF} in \path{lang-psf/psf.abt.sig}, not the implementation of structure \code{PSF} itself.
+
+Observe that there are two sorts in \LangPSF{}, \code{Typ} and \code{Exp}, each with their own sub-structure.
+As on the previous assignment, you will find the ``primed'' auxiliaries (such as \code{Exp.Pair'}) useful for constructing elements of \code{Exp.t} and \code{Exp.out : view -> exp} useful for going by cases on an element of \code{Exp.t}.
+
+In this section, we'll implement the statics; in other words, we'll write a typechecker.
+
+\subsubsection[core/ Utilities]{\path{core/} Utilities}\label{sec:core-utilities}
+
+Before we get to implementing, we'll introduce some common signatures that will be used throughout the semester.
+
+We'll often use \code{signature SHOW}, denoting a type that can be converted to a string:
+\codefile{core/common/show.sig}
+The \code{toString} function will be used to provide a convenient REPL interface.
+
+Now, we will consider the signature for implementing the statics of a programming language.
+
+\begin{figure}
+  \codefile[linerange={1-5,7-9}]{core/statics/context.sig}
+  \codefile[linerange={1-10,16-16,23-24}]{core/statics/statics.sig}
+  \caption{The \code{STATICS} signature.}
+  \label{fig:statics}
+\end{figure}
+
+First, consider \code{signature CONTEXT}, given in \cref{fig:statics}.
+In general, there are relatively few requirements on a context: there should be an \code{empty} context and the ability to \code{append} two contexts.
+In \LangPSF{} (and in many languages we'll work with), though, we will desire additional operations.
+This is expressed in \code{signature CONTEXT_PSF} in \cref{fig:context-psf}: after including all operations from \code{CONTEXT}, we add the ability to \code{insert} a variable of a particular type and \code{lookup} the type of a variable.
+
+\begin{figure}
+  \codefile{lang-psf/context-psf.sig}
+  \caption{The \code{CONTEXT_PSF} signature, extending the \code{CONTEXT} signature from \cref{fig:statics}.}
+  \label{fig:context-psf}
+\end{figure}
+
+We provide a structure \code{ContextPSF :> CONTEXT_PSF} in \path{lang-psf/context-psf.sml}, implemented as a dictionary.
+
+Now, consider \code{signature STATICS}, also defined in \cref{fig:statics}.
+Observe that structures \code{Typ}, \code{Term}, and \code{Context} are marked as ``parameters''.
+For example, the typechecker for \LangPSF{} will ascribe to the following signature:
+\codefile[linerange={1-5}]{lang-psf/statics-psf.sml}
+
+On the other hand, the type \code{Error.t} is left abstract.
+We will not grade the quality of your error messages; thus, throughout the semester, \emph{you may choose any type you wish} for \code{Error.t}!
+Here are some common choices:
+\begin{itemize}
+  \item
+    \code{structure UnitError}, defined in \path{core/common/error-unit.sml}.
+
+    It sets \code{type t = unit}, allowing you to \code{raise TypeError ()}.
+    This is is easy to use, but it may make debugging type errors more challenging.
+
+  \item
+    \code{structure StringError}, defined in \path{core/common/error-string.sml}.
+
+    It sets \code{type t = string}, allowing you to \code{raise TypeError "error message"}.
+    This is fairly easy to use and quite flexible, but it forces you to do string processing in-line.
+
+  \item
+    \code{structure StaticsErrorPSF}, defined in \path{lang-psf/statics-error-psf.sml}.
+
+    It uses a custom datatype for \code{type t}, providing errors for scenarios where an elimination form is used incorrectly and for when a type assertion fails.
+    This allows you you to factor out all string processing logic.
+
+  \item
+    Your own custom implementation, defined directly after \code{structure Error =}.
+\end{itemize}
+The starter code sets \code{structure Error = StaticsErrorPSF}, but you are welcome to change this as you wish.
+
+Every typechecker should implement:
+\begin{itemize}
+  \item
+    \code{inferType}, such that \code{inferType context term} infers the type of \code{term} in \code{context}.
+    If no type exists, it should \code{raise TypeError error}, for some \code{error : Error.t}.
+
+  \item
+    \code{checkType}, such that \code{checkType context term typ} checks that the type of \code{term} in \code{context} is \code{typ}, returning \code{()}.
+    If this is not the case, it should \code{raise TypeError error}, for some \code{error : Error.t}.
+\end{itemize}
+Given \code{inferType}, it is easy to implement \code{checkType}; we provide its implementation for you.
+You may find it productive to use \code{checkType} (mutually recursively) from within \code{inferType}.
+
+\subsubsection{The First of Many}
+
+\begin{task}{40}
+  In \path{lang-psf/statics-psf.sml}, implement the statics of \LangPSF{} given in \cref{sec:statics}.
+\end{task}
+
+\begin{hint}
+  The rules in \cref{sec:statics} precisely determine how \code{inferType} should behave.
+  If you wish to determine the type of some expression based on the conclusion of an inference rule, you can make recursive calls to \code{inferType} (and \code{checkType}) to determine (or assert) the types of sub-expressions as given in the premises.
+\end{hint}
+
+
+\subsubsection{Testing}
+See \cref{sec:testing}; note that for the time being, the dynamics will not be implemented, but your typechecker will be used to infer the types of expressions in test files and in the REPL.
+
+
+\section{Dynamics}
+
+Now that we have determined which programs are well-formed, we will consider how to run these programs.
+We give the dynamics of \LangPSF{} in \cref{sec:dynamics}, defined by the judgments $\boxed{\IsVal{e}}$ and $\boxed{e \StepsTo e'}$.
+
+For the dynamics of \LangPSF{}, we must prove \emph{safety}, which consists of two properties:
+\begin{enumerate}
+  \item \textbf{Progress}, which states that every well-typed program is either a value or can step.
+  \item \textbf{Preservation}, which states that steps preserve types.
+\end{enumerate}
+Progress will tell us how to implement the dynamics, and preservation will help us check that the dynamics are sensible.
+
+\subsection{Progress}
+
+First, we will prove progress for \LangPSF{}; then, we will use our proof to implement the language.
+For simplicity, you will only focus on the cases for (nullary and binary) sums, $\voidtycst$ and $\sumtycst{\tau_1}{\tau_2}$.
+
+Before we can prove the theorem itself, we will need an important lemma.
+\begin{lemma}[Canonical Forms]\label{lem:canonical-forms}
+  If $\IsVal{e}$, then:
+  \begin{enumerate}
+    \item If $\cdot \entails \IsOf{e}{\voidtycst}$, then we have reached a contradiction.
+    \item If $\cdot \entails \IsOf{e}{\sumtycst{\tau_1}{\tau_2}}$, then either:
+      \begin{itemize}
+        \item $e = \inlexcst{\tau_2}{e_1}$, for some $e_1$ with $\IsVal{e_1}$, or
+        \item $e = \inrexcst{\tau_1}{e_2}$, for some $e_2$ with $\IsVal{e_2}$.
+      \end{itemize}
+  \end{enumerate}
+\end{lemma}
+Here, we only enumerate the cases for (nullary and binary) sums.
+
+\begin{task}{10}
+  State the Canonical~Forms~Lemma for the remaining types in \LangPSF{}: nullary products, binary products, and arrow types.
+\end{task}
+\solution{cfl-statement}
+
+\begin{task}{10}
+  Prove the cases of \cref{lem:canonical-forms} for (nullary and binary) sums only.
+  \begin{hint}
+    In each case, you assume that $\IsVal{e}$ and that $e$ is well-typed.
+    Which assumption should you go by induction on first?
+  \end{hint}
+  \begin{hint}
+    Feel free to state that all remaining are vacuous, as long as this claim is true.
+  \end{hint}
+\end{task}
+\solution{cfl}
+
+
+\begin{theorem}[Progress]\label{thm:progress}
+  If $\IsOf{e}{\tau}$, then either:
+  \begin{itemize}
+    \item there exists some $e'$ such that $e \StepsTo e'$, or
+    \item $\IsVal{e}$.
+  \end{itemize}
+\end{theorem}
+
+\begin{task}{25}
+  Prove \cref{thm:progress} for the introduction and elimination forms for (nullary and binary) sums:
+  cases $\absurdexcst{\tau}{e}$, $\inlexcst{\tau_2}{e}$, $\inrexcst{\tau_1}{e}$, and $\caseexcst{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}$.
+
+  You \emph{may omit symmetric cases} (e.g., left vs. right branches of a case); simply say ``this case is symmetric''.
+  You can assume that progress is proved for all other forms (i.e., the IH holds).
+  Moreover, you may use \cref{lem:canonical-forms}, as long as the citations are correct.
+\end{task}
+\solution{progress}
+
+
+\subsection{Implementation}
+
+Now that we know that every expression form makes progress, we are able to implement \LangPSF{}!
+
+\subsubsection[core/ Utilities]{\path{core/} Utilities}
+
+In \cref{sec:core-utilities}, we discussed core signatures for implementing a statics.
+Now, we will introduce the analogous utilities for impementing a dynamics.
+
+First, consider \code{signature STATE}, partially reproduced in \cref{fig:dynamics}.
+When implementing dynamics, we will have two important types: the type of user programs and the type of ``machine states''.
+The type \code{'a t} in \code{signature STATE} represents a machine state, where we will choose \code{'a} to be the type of programs.
+We include \code{val initial : 'a -> 'a t} to create a machine state containing a program.
+
+\begin{figure}
+  \codefile[linerange={1-3,7-7,11-11}]{core/dynamics/state.sig}
+  \codefile{core/dynamics/dynamics.sig}
+  \caption{The \code{DYNAMICS} signature.}
+  \label{fig:dynamics}
+\end{figure}
+
+Often, the two machine states will be ``taking a step'' and ``finished with a value'', corresponding to judgments $e \StepsTo e'$ and $\IsVal{e}$.
+For this purpose, we will extend the signature as shown in \cref{fig:state-transition}, where for \LangPSF{}, type \code{Value.t} will be \code{Exp.t}.
+We provide this structure as \code{StatePSF}.
+
+\begin{figure}
+  \codefile[linerange={1-5}]{core/dynamics/state-transition.fun}
+  \caption{The result signature for the \code{TransitionState} functor.}
+  \label{fig:state-transition}
+\end{figure}
+
+The key signature is \code{signature DYNAMICS}, shown in \cref{fig:dynamics}.
+Every dynamics will come equipped with a state parameter and a term parameter; for example, the dynamics for \LangPSF{} will ascribe to the following signature:
+
+\codefile[linerange={1-4}]{lang-psf/dynamics-psf.sml}
+
+Just like with the typechecker, you may choose a suitable \code{structure Error}; the data in a \code{Malformed} exception is for your debugging.
+We include \code{structure DynamicsErrorPSF} in \path{lang-psf/dynamics-error-psf.sml}, although you are welcome to use an error structure described in \cref{sec:core-utilities}.
+
+\clearpage
+\begin{task}{40}
+  In \path{lang-psf/dynamics-psf.sml}, implement the dynamics of \LangPSF{} given in \cref{sec:dynamics}.
+  You should assume that your input is well-typed.
+\end{task}
+\begin{hint}
+  The progress theorem precisely determines how \code{progress} should be implemented.
+  \begin{itemize}
+    \item When the proof of progress says that $e \StepsTo e'$, your code should produce \code{State.Step e'}.
+    \item When the proof of progress says that $\IsVal{e}$, your code should produce \code{State.Val e}.
+    \item When the proof of progress appeals to the IH and cases on the result, you should recursively call \code{progress} and case on \code{State.Step e} and \code{State.Val v}.
+    \item When the proof of progress uses the Canonical Forms Lemma on $e$, you should case on \code{Exp.out e}, raising \code{Malformed} in cases guaranteed to be impossible.
+  \end{itemize}
+\end{hint}
+
+\subsubsection{Testing}
+See \cref{sec:testing}; you should be able to replicate the given test outputs.
+Feel free to build your own tests (in a test file or in \code{InterpreterPSF.repl ()}), as well!
+
+\subsection{Preservation}
+
+Now, it remains to show that the dynamics for \LangPSF{} are sensible; i.e., that transitions preserve typing.
+
+Once again, we will first need some lemmas.
+
+\begin{lemma}[Inversion]\label{lem:inversion}
+  The following inversions hold:
+  \begin{enumerate}
+    \item If $\Gamma \entails \IsOf{\absurdexcst{\tau}{e}}{\tau}$, then:
+      \begin{itemize}
+        \item $\Gamma \entails \IsOf{e}{\voidtycst}$
+      \end{itemize}
+    \item If $\Gamma \entails \IsOf{\inlexcst{\tau_2}{e}}{\tau}$, then:
+      \begin{itemize}
+        \item $\tau = \sumtycst{\tau_1}{\tau_2}$
+        \item $\Gamma \entails \IsOf{e}{\tau_1}$
+      \end{itemize}
+    \item If $\Gamma \entails \IsOf{\caseexcst{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}}{\tau}$, then for some $\tau_1, \tau_2$:
+      \begin{itemize}
+        \item $\Gamma \entails \IsOf{e}{\sumtycst{\tau_1}{\tau_2}}$
+        \item $\Gamma, \IsOf{x_1}{\tau_1} \entails \IsOf{e_1}{\tau}$
+        \item $\Gamma, \IsOf{x_2}{\tau_2} \entails \IsOf{e_2}{\tau}$
+      \end{itemize}
+  \end{enumerate}
+\end{lemma}
+Like \cref{lem:canonical-forms}, we only enumerate the cases for (nullary and binary) sums here.
+
+\begin{task}{10}
+  Prove the $\caseexcst{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}$ case of \cref{lem:inversion}.
+  \begin{hint}
+    There is only one possibility to induct on.
+    Furthermore, many cases will be vacuous!
+  \end{hint}
+\end{task}
+\solution{inversion}
+
+Additionally, we have the following lemma:
+\begin{lemma}[Substitution]\label{lem:substitution}
+  If $\Gamma \entails \IsOf{e_1}{\tau_1}$ and $\Gamma, \IsOf{x}{\tau_1} \entails \IsOf{e}{\tau}$,
+  then $\Gamma \entails \IsOf{\Subst{e_1}{x}{e}}{\tau}$.
+\end{lemma}
+
+Now, on to the main theorem:
+
+\begin{theorem}[Preservation]\label{thm:preservation}
+  If $e \StepsTo e'$, then if $\cdot \entails \IsOf{e}{\tau}$, then $\cdot \entails \IsOf{e'}{\tau}$.
+\end{theorem}
+
+\begin{task}{25}
+  Prove \cref{thm:preservation} for the introduction and elimination forms for (nullary and binary) sums:
+  cases $\absurdexcst{\tau}{e}$, $\inlexcst{\tau_2}{e}$, $\inrexcst{\tau_1}{e}$, and $\caseexcst{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}$.
+
+  You \emph{may omit symmetric cases} (e.g., left vs. right branches of a case); simply say ``this case is symmetric''.
+  You can assume that preservation is proved for all other forms (i.e., the IH holds).
+  Moreover, you may use \cref{lem:inversion,lem:substitution}, as long as their citations are correct.
+\end{task}
+\solution{preservation}
+
+
+\section{Computational Trinitarianism}
+
+In this section, we will explore how \emph{types}, \emph{algebra}, and \emph{logic} are all fundamentally related.
+
+\subsection{Algebra}
+
+Consider the types $\prodtycst{\alpha}{\beta}$ and $\prodtycst{\beta}{\alpha}$, for some fixed types $\alpha, \beta$.
+While elements of the former cannot be used directly in place of elements of the latter, they seem to contain equivalent information.
+To prove this, we can exhibit an \emph{isomorphism} between the types.
+
+\begin{defn}[Isomorphic Types]
+  An \emph{isomorphism} between types $\tau_1$ and $\tau_2$ in \LangPSF{} consists of
+  a \LangPSF{} expression $\IsOf{f_1}{\arrtycst{\tau_1}{\tau_2}}$ and
+  a \LangPSF{} expression $\IsOf{f_2}{\arrtycst{\tau_2}{\tau_1}}$
+with following two properties.
+  \begin{enumerate}
+  \item For all values $\IsOf{v_1}{\tau_1}$, we have
+    $f_2(f_1(v_1)) = v_1$.
+  \item For all values $\IsOf{v_2}{\tau_2}$, we have
+    $f_1(f_2(v_2)) = v_2$.
+  \end{enumerate}
+  If there is an isomorphism between $\tau_1$ and $\tau_2$ in
+  \LangPSF{} then we say  $\tau_1$ and $\tau_2$ are \emph{isomorphic} in
+  \LangPSF{}  and write $\tau_1 \Iso \tau_2$.
+\end{defn}
+
+Notice that this definition is similar to the notion of ``bijection'' from set theory.
+
+Note: for simplicity, we will not treat the notion of equality $=$ used in the proofs rigorously, since it's beyond the scope of this course.
+Thus, for our purposes, both proofs need only be argued \emph{informally}.
+
+Now, let's consider a proof that $\prodtycst{\alpha}{\beta} \Iso \prodtycst{\beta}{\alpha}$:
+\begin{quote}
+  Consider the following functions:
+  \begin{align*}
+    f_1 &= \lamcst{\prodtycst{\alpha}{\beta}}{x}{\pairexcst{\sndexcst{x}}{\fstexcst{x}}} \\
+    f_2 &= \lamcst{\prodtycst{\beta}{\alpha}}{x}{\pairexcst{\sndexcst{x}}{\fstexcst{x}}}
+  \end{align*}
+  Clearly, $f_2(f_1(v_1)) = v_1$ for each value $v_1 : \prodtycst{\alpha}{\beta}$, since the elements of the pair are swapped and swapped back.
+  The other direction is similar.
+\end{quote}
+
+This isomorphism serves as a ``data migration'' scheme: it tells us precisely how to migrate data stored as $\prodtycst{\alpha}{\beta}$ to a new format, $\prodtycst{\beta}{\alpha}$.
+Intuitively, this process roughly corresponds to swapping two columns in a database.
+
+The isomorphism $\prodtycst{\alpha}{\beta} \Iso \prodtycst{\beta}{\alpha}$ is an example of a broader pattern: types form an \emph{algebraic structure}!
+Amazingly enough, this isomorphism is much like a fact you learned in elementary school: $a \times b = b \times a$, where $a, b \in \N$.
+
+\subsubsection{Notation}
+
+For the duration of this problem, we will use:
+\begin{itemize}
+  \item $\alpha, \beta, \gamma$ to represent arbitrary types,
+  \item $a, b, c$ to represent numbers, and
+  \item \code{A}, \code{B}, \code{C} to represent types in the \LangPSF{} implementation.
+\end{itemize}
+
+Using our implementation of \LangPSF{}, we can implement type isomorphisms.
+For example, we implement the previous isomorphism in \path{lang-psf/tests/iso0.psf}.
+
+\newcounter{rownumber}
+\newcommand{\rownumber}{\stepcounter{rownumber}\arabic{rownumber}.}
+
+\begin{task}{16}
+  Prove each of the following isomorphisms in \path{lang-psf/tests/}, giving two functions of the appropriate types (first the left-to-right direction, then the right-to-left direction).
+  In a comment, provide a brief informal justification (1-3 sentences) about why your functions are mutually inverse.
+  The arithmetic expressions in the ``Arithmetic Correspondent'' column are just for reference/intuition.
+
+  \begin{center}
+    \begin{tabular}{l|c c c}
+                 & Type Isomorphism & Arithmetic Correspondent & File \\ \hline
+      \rownumber & $\prodtycst{\alpha}{\unittycst} \Iso \alpha$ & $a \times 1 = a$ & \path{iso1.psf} \\
+      \rownumber & $\prodtycst{(\prodtycst{\alpha}{\beta})}{\gamma} \Iso \prodtycst{\alpha}{(\prodtycst{\beta}{\gamma})}$ & $(a \times b) \times c = a \times (b \times c)$ & \path{iso2.psf} \\
+      \rownumber & $\sumtycst{\alpha}{\voidtycst} \Iso \alpha$ & $a + 0 = a$ & \path{iso3.psf} \\
+      \rownumber & $\prodtycst{\alpha}{(\sumtycst{\beta}{\gamma})} \Iso \sumtycst{(\prodtycst{\alpha}{\beta})}{(\prodtycst{\alpha}{\gamma})}$ & $a \times (b + c) = (a \times b) + (a \times c)$ & \path{iso4.psf} \\
+      \rownumber & $\arrtycst{\voidtycst}{\voidtycst} \Iso \unittycst$ & $0^0 = 1$ & \path{iso5.psf} \\
+      \rownumber & $\arrtycst{\alpha}{(\arrtycst{\beta}{\gamma})} \Iso \arrtycst{(\prodtycst{\alpha}{\beta})}{\gamma}$ & ${(c^b)}^a = c^{a \times b}$ & \path{iso6.psf} \\
+      \rownumber & $\arrtycst{\alpha}{(\prodtycst{\beta}{\gamma})} \Iso \prodtycst{(\arrtycst{\alpha}{\beta})}{(\arrtycst{\alpha}{\gamma})}$ & ${(b \times c)}^a = b^a \times c^a$ & \path{iso7.psf} \\
+      \rownumber & $\arrtycst{(\sumtycst{\alpha}{\beta})}{\gamma} \Iso (\arrtycst{\alpha}{\gamma}) \times (\arrtycst{\beta}{\gamma})$ & $c^{a + b} = c^a \times c^b$ & \path{iso8.psf}
+    \end{tabular}
+  \end{center}
+\end{task}
+
+By proving these isomorphisms, you have provided witnesses to the fact that programmers may go freely between the data representations on each side of the equation.
+You may even find it useful to reorganize your data structures with simple arithmetic facts in mind!
+
+\subsection{Logic}
+
+There is a remarkable---and influential---correspondence between principles of reasoning (logic) and principles of programming (type theory) called the \emph{propositions-as-types} correspondence.
+Informally, the rules of logic determining when a propositional formula $\varphi$ is a tautology (i.e., always true) correspond to the typing rules for the corresponding type.
+In school, the rules of logic are usually taught in terms of ``truth tables'' for connectives, defining when propositions are \emph{true} or \emph{false}.
+And yet when using logic to show that a proposition is true, we \emph{give a proof} of it.
+When we have a proof of $\varphi$, the truth table will say that it is always true.% , but otherwise there is not much connection between truth tables and writing proofs.
+
+What is a proof, then?
+The propositions-as-types principle states that a proof of a proposition $\varphi$ is a \emph{program} of the type corresponding to $\varphi$ (and vice versa), according to the following chart:
+\begin{center}
+  \begin{tabular}{c c c}
+    Connective        & Proposition $\varphi$           & Type $\overline{\varphi}$ \\ \hline
+    trivial truth     & $\ltrue$                        & $\unittycst$ \\
+    conjunction       & $\varphi_1 \land \varphi_2$     & $\prodtycst{\overline{\varphi_1}}{\overline{\varphi_2}}$ \\
+    trivial falsehood & $\lfalse$                       & $\voidtycst$ \\
+    disjunction       & $\varphi_1 \lor \varphi_2$      & $\sumtycst{\overline{\varphi_1}}{\overline{\varphi_2}}$ \\
+    implication       & $\varphi_1 \limplies \varphi_2$ & $\arrtycst{\overline{\varphi_1}}{\overline{\varphi_2}}$
+  \end{tabular}
+\end{center}
+
+Thus, proving $\varphi_1 \supset \varphi_2$ amounts to writing a program that takes an element of type $\overline{\varphi_1}$ (an assumed proof of $\varphi_1$) and produces an element of type $\overline{\varphi_2}$ (a proof of $\varphi_2$).
+%
+This suggests that the proofs that corresponds to programs are constructive.
+%
+Indeed, the propositions that we can prove with programs in \LangPSF{}
+correspond to the tautologies of \emph{constructive logic}.
+%
+Be careful: we cannot prove all ``classical'' tautologies (i.e., tautologies that can be proved via truth tables).
+All tautologies that are constructively true also hold classically, but not all tautologies that are true classically hold constructively.
+
+Let $A, B, C$ be arbitrary propositions, with:
+\begin{align*}
+  \overline{A} &\isdef{} \code{A} \\
+  \overline{B} &\isdef{} \code{B} \\
+  \overline{C} &\isdef{} \code{C}
+\end{align*}
+In your solutions, you need not be careful about the fonts; conflate at your convenience.
+
+\paragraph{Example}
+Consider the following formula:
+\[ \varphi \isdef (A \limplies (A \lor B)) \land (B \limplies (C \limplies B)) \]
+The corresponding type $\overline{\varphi}$ is:
+\[ \prodtycst{(\arrtycst{\code{A}}{\sumtycst{\code{A}}{\code{B}}})}{(\arrtycst{\code{\B}}{(\arrtycst{\code{C}}{\code{B}})})} \]
+Thus, we can prove the theorem via the following term:
+\[
+    \pairexcst
+      {\lamcst{\code{A}}{a}{\inlexcst{\code{B}}{a}}}
+      {\lamcst{\code{B}}{b}{\lamcst{\code{C}}{c}{b}}}
+\]
+
+\paragraph{Example}
+Consider the following formula:
+\[ \varphi \isdef (A \lor B) \limplies A \]
+The corresponding type $\overline{\varphi}$ is:
+\[ \arrtycst{\sumtycst{\code{A}}{\code{B}}}{\code{A}} \]
+No program of this type exists, since if the input is a right injection, we have no way of transforming a $\code{B}$ into a $\code{A}$.
+
+\begin{task}{24}
+  In this exercise, you are to explore the propositoins-as-types correspondence by exhibiting proofs or arguing that none exists.
+  For each proposition $\varphi$ below, show that $\varphi$ is (constructively) true by exhibiting a program $e : \overline{\varphi}$, or argue informally that no such $e$ can exist.
+
+  \begin{enumerate}
+    \item $\lfalse$
+    \item $\top \lor \lfalse$
+    \item $(A \limplies (B \lor C)) \limplies ((A \limplies B) \lor (A \limplies C))$
+    \item $((A \limplies B) \lor (A \limplies C)) \limplies (A \limplies (B \lor C))$
+  \end{enumerate}
+
+  Define $\lnot \varphi \isdef \varphi \limplies \lfalse$.
+
+  \begin{enumerate}[resume]
+    \item $A \limplies (\lnot \lnot A)$
+    \item $(\lnot \lnot A) \limplies A$
+    \item $A \lor \lnot A$
+    \item $\lnot \lnot (A \lor \lnot A)$
+    \item $\lnot (A \lor B) \limplies (\lnot A \land \lnot B)$
+    \item $(\lnot A \land \lnot B) \limplies \lnot (A \lor B)$
+    \item $\lnot (A \land B) \limplies (\lnot A \lor \lnot B)$
+    \item $(\lnot A \lor \lnot B) \limplies \lnot (A \land B)$
+  \end{enumerate}
+\end{task}
+\begin{hint}
+  If you believe you have constructed an expression of the correct type, you can check your solution via \code{InterpreterPSF.repl ()}.
+  You may also find it helpful to submit your solutions in a \verb|\begin{codeblock}| environment, perhaps in \LangPSF{} concrete syntax (or something close to it).
+\end{hint}
+\solution{props-as-types}
+
+\begin{remark}
+  A theorem $\varphi$ is true constructively if there is \emph{at least} one proof of it.
+  However, it's possible for there to be \emph{multiple} proofs of a given proposition.
+  For example, consider:
+  \[ \varphi \isdef \ltrue \lor \ltrue \]
+  Then, $\overline{\varphi}$ is $\sumtycst{\unittycst}{\unittycst}$, which can be proven via both $\inlexcst{\unittycst}{\unitexcst}$ and $\inrexcst{\unittycst}{\unitexcst}$.
+\end{remark}
+
+\begin{remark}
+  If $\overline{\varphi_1} \Iso \overline{\varphi_2}$, then $\varphi_1 \liff \varphi_2$.
+  Consider what the type isomorphisms from the previous question mean logically.
+\end{remark}
+
+
+\appendix
+
+\section{Statics}\label{sec:statics}
+
+\begin{mathpar}
+  \Infer[Var]
+    {\strut}
+    {\Gamma,\IsOf{x}{\tau} \entails \IsOf{x}{\tau}}
+\end{mathpar}
+
+\subsection{Functions}
+
+\begin{mathpar}
+  \Infer[$\arrtycst{}{}\intro$]
+    {\Gamma, \IsOf{x}{\tau_1} \entails \IsOf{e_2}{\tau_2}}
+    {\Gamma \entails \IsOf{\lamabt{\tau_1}{x}{e_2}}{\arrtycst{\tau_1}{\tau_2}}}
+
+  \Infer[$\arrtycst{}{}\elim$]
+    {
+      \Gamma \entails \IsOf{e}{\arrtycst{\tau_1}{\tau_2}} \\
+      \Gamma \entails \IsOf{e_1}{\tau_1}
+    }
+    {\Gamma \entails \IsOf{\appabt{e}{e_1}}{\tau_2}}
+\end{mathpar}
+
+\subsection{Products}
+
+\begin{mathpar}
+  \Infer[$\unittycst\intro$]
+    {\strut}
+    {\Gamma \entails \IsOf{\unitexabt}{\unittycst}}
+\end{mathpar}
+
+\begin{mathpar}
+  \Infer[$\prodtycst{}{}\intro$]
+    {
+      \Gamma \entails \IsOf{e_1}{\tau_1} \\
+      \Gamma \entails \IsOf{e_2}{\tau_2}
+    }
+    {\Gamma \entails \IsOf{\pairexabt{e_1}{e_2}}{\prodtycst{\tau_1}{\tau_2}}}
+
+  \Infer[$\prodtycst{}{}\elim_1$]
+    {\Gamma \entails \IsOf{e}{\prodtycst{\tau_1}{\tau_2}}}
+    {\Gamma \entails \IsOf{\fstexabt{e}}{\tau_1}}
+
+  \Infer[$\prodtycst{}{}\elim_2$]
+    {\Gamma \entails \IsOf{e}{\prodtycst{\tau_1}{\tau_2}}}
+    {\Gamma \entails \IsOf{\sndexabt{e}}{\tau_2}}
+\end{mathpar}
+
+\subsection{Sums}
+
+\begin{mathpar}
+  \Infer[$\voidtycst\elim$]
+    {\Gamma \entails \IsOf{e}{\voidtycst}}
+    {\Gamma \entails \IsOf{\absurdexabt{\tau}{e}}{\tau}}
+\end{mathpar}
+
+\begin{mathpar}
+  \Infer[$\sumtycst{}{}\intro_1$]
+    {\Gamma \entails \IsOf{e}{\tau_1}}
+    {\Gamma \entails \IsOf{\inlexabt{\tau_1}{\tau_2}{e}}{\sumtycst{\tau_1}{\tau_2}}}
+
+  \Infer[$\sumtycst{}{}\intro_2$]
+    {\Gamma \entails \IsOf{e}{\tau_2}}
+    {\Gamma \entails \IsOf{\inrexabt{\tau_1}{\tau_2}{e}}{\sumtycst{\tau_1}{\tau_2}}}
+
+  \Infer[$\sumtycst{}{}\elim$]
+    {
+      \Gamma \entails \IsOf{e}{\sumtycst{\tau_1}{\tau_2}} \\
+      \Gamma, \IsOf{x_1}{\tau_1} \entails \IsOf{e_1}{\tau} \\
+      \Gamma, \IsOf{x_2}{\tau_2} \entails \IsOf{e_2}{\tau}
+    }
+    {\Gamma \entails \IsOf{\caseexabt{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}}{\tau}}
+\end{mathpar}
+
+\section{Dynamics (Eager, Left-to-Right)}\label{sec:dynamics}
+
+\subsection{Functions}
+
+\begin{mathpar}
+  \Infer
+    {\strut}
+    {\IsVal{\lamabt{\tau_1}{x}{e_2}}}
+  \\
+
+  \Infer
+    {e \StepsTo e'}
+    {\appabt{e}{e_1} \StepsTo \appabt{e'}{e_1}}
+
+  \Infer
+    {
+      \IsVal{e} \\
+      e_1 \StepsTo e_1'
+    }
+    {\appabt{e}{e_1} \StepsTo \appabt{e}{e_1'}}
+
+  \Infer
+    {\IsVal{e_1}}
+    {\appabt{(\lamabt{\tau_1}{x}{e_2})}{e_1} \StepsTo \Subst{e_1}{x}{e_2}}
+\end{mathpar}
+
+\subsection{Products}
+
+\begin{mathpar}
+  \Infer
+    {\strut}
+    {\IsVal{\unitexabt}}
+\end{mathpar}
+
+\begin{mathpar}
+  \Infer
+    {e_1 \StepsTo e_1'}
+    {\pairexabt{e_1}{e_2} \StepsTo \pairexabt{e_1'}{e_2}}
+
+  \Infer
+    {
+      \IsVal{e_1} \\
+      e_2 \StepsTo e_2'
+    }
+    {\pairexabt{e_1}{e_2} \StepsTo \pairexabt{e_1}{e_2'}}
+
+  \Infer
+    {
+      \IsVal{e_1} \\
+      \IsVal{e_2}
+    }
+    {\IsVal{\pairexabt{e_1}{e_2}}}
+  \\
+
+  \Infer
+    {e \StepsTo e'}
+    {\fstexabt{e} \StepsTo \fstexabt{e'}}
+
+  \Infer
+    {
+      \IsVal{e_1} \\
+      \IsVal{e_2}
+    }
+    {\fstexabt{\pairexabt{e_1}{e_2}} \StepsTo e_1}
+
+  \Infer
+    {e \StepsTo e'}
+    {\sndexabt{e} \StepsTo \sndexabt{e'}}
+
+  \Infer
+    {
+      \IsVal{e_1} \\
+      \IsVal{e_2}
+    }
+    {\sndexabt{\pairexabt{e_1}{e_2}} \StepsTo e_2}
+\end{mathpar}
+
+\subsection{Sums}
+
+\begin{mathpar}
+  \Infer
+    {e \StepsTo e'}
+    {\absurdexabt{\tau}{e} \StepsTo \absurdexabt{\tau}{e'}}
+\end{mathpar}
+
+\begin{mathpar}
+  \Infer
+    {e \StepsTo e'}
+    {\inlexabt{\tau_1}{\tau_2}{e} \StepsTo \inlexabt{\tau_1}{\tau_2}{e'}}
+
+  \Infer
+    {\IsVal{e}}
+    {\IsVal{\inlexabt{\tau_1}{\tau_2}{e}}}
+
+  \Infer
+    {e \StepsTo e'}
+    {\inrexabt{\tau_1}{\tau_2}{e} \StepsTo \inrexabt{\tau_1}{\tau_2}{e'}}
+
+  \Infer
+    {\IsVal{e}}
+    {\IsVal{\inrexabt{\tau_1}{\tau_2}{e}}}
+  \\
+
+  \Infer
+    {e \StepsTo e'}
+    {\caseexabt{e}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2} \StepsTo \caseexabt{e'}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2}}
+
+  \Infer
+    {\IsVal{e}}
+    {\caseexabt{\inlexabt{\tau_1}{\tau_2}{e}}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2} \StepsTo \Subst{e}{x_1}{e_1}}
+
+  \Infer
+    {\IsVal{e}}
+    {\caseexabt{\inrexabt{\tau_1}{\tau_2}{e}}{x_1}{\tau_1}{e_1}{x_2}{\tau_2}{e_2} \StepsTo \Subst{e}{x_2}{e_2}}
+\end{mathpar}
+
+
+\section[PSF Interpreter]{\LangPSF{} Interpreter}\label{sec:testing}
+
+We combine \code{StaticsPSF} and \code{DynamicsPSF} into \code{InterpreterPSF}, which ascribes to the following signature:
+\codefile{core/interpreter/interpreter.sig}
+
+In \code{lang-psf/tests/}, some small \LangPSF{} examples are demonstrated in concrete syntax:
+\codefile{lang-psf/tests/tests.psf}
+
+To run the tests or enter the \LangPSF{} REPL, change your directory to \path{lang-psf/} and load \path{sources.cm}:
+\begin{codeblock}
+  smlnj -m sources.cm
+
+  - InterpreterPSF.evalFile "tests/tests.psf";
+  (Lam (Unit, (x2 . x2)))
+  Type: (Arrow (Unit, Unit))
+  Evaluating... val (Lam (Unit, (x8 . x8)))
+
+  (Lam ((Arrow (Unit, (Sum (Unit, Unit)))), (f11 . (Ap (f11, Triv)))))
+  Type: (Arrow ((Arrow (Unit, (Sum (Unit, Unit)))), (Sum (Unit, Unit))))
+  Evaluating... val (Lam ((Arrow (Unit, (Sum (Unit, Unit)))), (f17 . (Ap (f17, Triv)))))
+
+  (* ... *)
+
+  val it = () : unit
+  - InterpreterPSF.repl ();
+  -> <<>, in[r]{unit,unit}(<>)>.r;
+  (PrR (Pair (Triv, (InR ((Unit, Unit), Triv)))))
+  Type: (Sum (Unit, Unit))
+  Evaluating... val (InR ((Unit, Unit), Triv))
+
+  ->
+\end{codeblock}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

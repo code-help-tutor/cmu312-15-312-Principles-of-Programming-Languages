@@ -1,0 +1,24 @@
+/* Do not rely on the implementation of references here, only the interface. */
+load "refs.lam";
+
+/* CHANGE ME! */
+type atomic_ref = ref;
+
+/* CHANGE ME! */
+fun new_atomic_ref (r : ref) : cmd[atomic_ref] =
+  cmd(ret(r))
+;
+
+/* CHANGE ME! */
+fun incr (r : atomic_ref) : cmd[unit] =
+  cmd(
+    val old = deref r in
+    /* Holy race condition, Batman! */
+    do(set r (succ old))
+  )
+;
+
+/* CHANGE ME! */
+fun cmpxchg (r : atomic_ref) (expected : nat) (new : nat) : cmd[bool] =
+  cmd(ret(false))
+;

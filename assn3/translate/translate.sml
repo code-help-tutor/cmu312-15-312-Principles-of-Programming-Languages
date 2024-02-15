@@ -1,0 +1,1 @@
+structure Translate = Translate(SynExt)

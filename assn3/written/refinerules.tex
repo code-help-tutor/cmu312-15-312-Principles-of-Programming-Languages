@@ -1,0 +1,425 @@
+\documentclass[11pt]{article}
+\usepackage{fullpage}
+\usepackage{latexsym}
+\usepackage{verbatim}
+\usepackage{code,proof,amsthm,amssymb,amsmath,stmaryrd}
+\usepackage{ifthen}
+\usepackage{graphics}
+\usepackage{mathpartir}
+\usepackage{hyperref}
+\usepackage{times}
+
+%% Question macros
+\newcounter{question}[section]
+\newcounter{extracredit}[section]
+\newcounter{totalPoints}
+\setcounter{totalPoints}{0}
+\newcommand{\question}[1]
+{
+\bigskip
+\addtocounter{question}{1}
+\addtocounter{totalPoints}{#1}
+\noindent
+{\textbf{Task \thesection.\thequestion}}[#1 points]:
+
+
+}
+\newcommand{\ecquestion}
+{
+\bigskip
+\addtocounter{extracredit}{1}
+\noindent
+\textbf{Extra Credit \thesection.\theextracredit}:}
+
+%% Set to "false" to generate the problem set, set to "true" to generate the solution set
+\def\issolution{false}
+
+\newcounter{taskcounter}
+\newcounter{taskPercentCounter}
+\newcounter{taskcounterSection}
+\setcounter{taskcounter}{1}
+\setcounter{taskPercentCounter}{0}
+\setcounter{taskcounterSection}{\value{section}}
+\newcommand{\mayresettaskcounter}{\ifthenelse{\value{taskcounterSection} < \value{section}}
+{\setcounter{taskcounterSection}{\value{section}}\setcounter{taskcounter}{1}}
+{}}
+
+% Solution-only - uses an "input" so that it's still safe to publish the problem set file
+\definecolor{solutioncolor}{rgb}{0.0, 0.0, 0.5}
+\newcommand{\solution}[1]
+  {\ifthenelse{\equal{\issolution}{true}}
+  {\begin{quote}
+    \addtocounter{taskcounter}{-1}
+    \fbox{\textcolor{solutioncolor}{\bf Solution \arabic{section}.\arabic{taskcounter}}}
+    \addtocounter{taskcounter}{1}
+    \textcolor{solutioncolor}{\input{./solution/#1}}
+  \end{quote}}
+  {}}
+
+\newcommand{\qbox}{\fbox{???}}
+
+\newcommand{\ms}[1]{\ensuremath{\mathsf{#1}}}
+\newcommand{\kw}[1]{\mathtt{#1}}
+\newcommand{\lpcf}{\mathcal{L}(\mathtt{nat} \rightharpoonup)}
+\newcommand{\lstlc}{\mathcal{L}(\mathtt{nat} \rightarrow)}
+
+\newcommand{\letbind}[3]{\kw{let}~#1=#2~\kw{in}~#3}
+\newcommand{\letexp}[3]{\kw{let}(#2; \abst{#1}{#3})}
+\newcommand{\lam}{\kw{lam}}
+\newcommand{\fix}{\kw{fix}}
+\newcommand{\parr}[2]{#1 \rightharpoonup #2}
+\newcommand{\pair}[2]{\langle #1, #2 \rangle}
+\newcommand{\triv}{\langle \rangle}
+\newcommand{\prl}{\kw{prl}}
+\newcommand{\prr}{\kw{prr}}
+\newcommand{\match}{\kw{match}}
+\newcommand{\matche}[1]{\match~#1~}
+\newcommand{\matchexp}[2]{\matche{#1}\{#2\}}
+\newcommand{\wild}{\kw{wild}}
+\newcommand{\zero}{\kw{z}}
+\newcommand{\suc}{\kw{s}}
+
+\newcommand{\natt}{\kw{nat}}
+\newcommand{\dynt}{\kw{dyn}}
+\newcommand{\unitt}{\kw{unit}}
+\newcommand{\prodt}[2]{#1\times#2}
+\newcommand{\voidt}{\kw{void}}
+\newcommand{\sumt}[2]{#1 + #2}
+
+\newcommand{\numc}{\kw{num}}
+\newcommand{\func}{\kw{fun}}
+
+\newcommand{\cast}[2]{\kw{cast}}
+\newcommand{\caste}[2]{\kw{cast}[#1](#2)}
+\newcommand{\newc}[2]{\kw{new}}
+\newcommand{\newce}[2]{\kw{new} [#1](#2)}
+
+\newcommand{\refines}[2]{#1 \triangleleft #2}
+\newcommand{\truth}[1]{\kw{truth}[#1]}
+\newcommand{\tru}[1]{\top_{#1}}
+\newcommand{\prop}{\varphi}
+\newcommand{\nump}{\kw{num}}
+\newcommand{\funp}[2]{\kw{fn}(#1,#2)}
+\newcommand{\isfun}[1]{\kw{fun}(#1)}
+\newcommand{\isnum}{\kw{num}}
+\newcommand{\isp}[2]{\kw{is} [#1](#2)}
+
+\newcommand{\syn}{\Rightarrow}
+\newcommand{\ana}{\Leftarrow}
+\newcommand{\rctx}{\Sigma}
+\newcommand{\refana}[2]{#1 \ana #2}
+\newcommand{\refsyn}[2]{#1 \syn #2}
+\newcommand{\anaJ}[3]{#1 \proves \refana{#2}{#3}}
+\newcommand{\anaJC}[2]{\anaJ{\rctx}{#1}{#2}}
+\newcommand{\synJ}[3]{#1 \proves \refsyn{#2}{#3}}
+\newcommand{\synJC}[2]{\synJ{\rctx}{#1}{#2}}
+
+\newcommand{\intro}{\text{-I}}
+\newcommand{\elim}{\text{-E}}
+
+\newcommand{\val}[1]{#1~\textsf{val}}
+\newcommand{\abst}[2]{#1.#2}
+\newcommand{\steps}[2]{#1 \mapsto #2}
+\newcommand{\subst}[3]{[#1/#2]#3}
+\newcommand{\err}[1]{#1~\textsf{err}}
+
+\newcommand{\goesto}{\Rightarrow}
+\newcommand{\abort}[2]{\kw{abort}[#1](#2)}
+\newcommand{\inl}{\kw{inl}}
+\newcommand{\inr}{\kw{inr}}
+\newcommand{\ecase}{\kw{case}}
+\newcommand{\ifz}{\kw{ifz}}
+\newcommand{\inlt}{\inl[\tau_1;\tau_2]}
+\newcommand{\inrt}{\inr[\tau_1;\tau_2]}
+
+
+\newcommand{\proves}{\vdash}
+\newcommand{\hasType}[2]{#1 : #2}
+\newcommand{\typeJ}[3]{#1 \proves \hasType{#2}{#3}}
+\newcommand{\ctx}{\Gamma}
+\newcommand{\emptyCtx}{\emptyset}
+\newcommand{\xCtx}[2]{\ctx, \hasType{#1}{#2}}
+\newcommand{\typeJC}[2]{\typeJ{\ctx}{#1}{#2}}
+
+\newcommand{\lctx}{\Lambda}
+\newcommand{\patJ}[3]{#1 \Vdash \hasType{#2}{#3}}
+\newcommand{\patJC}[2]{\patJ{\lctx}{#1}{#2}}
+\newcommand{\transforms}{\rightsquigarrow}
+\newcommand{\hooksto}{\hookrightarrow}
+
+\newcommand{\tlrule}{\theta\Lambda}
+\newcommand{\valrule}{\textsf{v}}
+\newcommand{\progrule}{\textsf{s}}
+\newcommand{\elimrule}{\textsf{e}}
+
+\newcommand{\matchJ}[3]{#1 \Vdash #2 \lhd #3}
+\newcommand{\matchJC}[2]{\matchJ{\theta}{#1}{#2}}
+\newcommand{\notmatchJ}[2]{#1 \bot #2}
+
+\newcommand{\laz}[1]{\left[ #1 \right]}
+
+
+
+\newcommand{\nmod}{~\mathtt{mod}~}
+\newcommand{\ndiv}{~\mathtt{div}~}
+
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newenvironment{answer}{\begin{proof}[{\bf Answer.}]}{\end{\proof}}
+
+\newcommand{\problemset}[1]
+  {\ifthenelse{\equal{\issolution}{true}}
+  {}{{#1}}}
+
+\setcounter{taskcounter}{1}
+\setcounter{taskPercentCounter}{0}
+\setcounter{taskcounterSection}{\value{section}}
+
+%\newcommand{\ttt}[1]{\texttt{#1}}
+
+%% part of a problem
+\newcommand{\task}[1]
+  {\bigskip \noindent {\bf Task\mayresettaskcounter{}\addtocounter{taskPercentCounter}{#1} \arabic{section}.\arabic{taskcounter}\addtocounter{taskcounter}{1}} (#1\%).}
+
+\newcommand{\ectask}
+  {\bigskip \noindent {\bf Task\mayresettaskcounter{} \arabic{section}.\arabic{taskcounter}\addtocounter{taskcounter}{1}} (Extra Credit).}
+
+%% The rule counter
+\newcounter{rule}
+\setcounter{rule}{0}
+\newcommand{\rn}
+  {\addtocounter{rule}{1}(\arabic{rule})}
+
+
+\title{Assignment \#3: \\
+        Refinements }
+
+\author{15-312: Principles of Programming Languages (Spring 2013)}
+\date{Out: Friday, February 11, 2013\\
+      Due: Thursday, February 21, 2013 11:59pm EST}
+
+\begin{document}
+\maketitle
+
+\section{Optimizing the Hybrid Language}
+\task{5}In the dynamic language described in the previous section, write the Ackermann function as given below. Note that the function should take a product as an input.
+\begin{equation*}
+A(m,n) =
+\begin{cases}
+n+1                 &\text{if $m = 0$}\\
+A(m-1,1)            &\text{if $n =0$} \\
+A(m-1, A(m, n-1))   &\text{otherwise}
+\end{cases}
+\end{equation*}
+
+\task{5} Translate the function from the previous task into the hybrid language, making explicit all necessary tags and checks and not introducing any optimizations (i.e. all variables bound by abstractions and the fixed-point iterator ($\fix$) should be of type $\dynt$).
+
+\task{5} Optimize the function of the previous task by removing all unnecessary casts ($\caste{l}{e}$) and news ($\newce{l}{e}$) (don't forget to write the appropriate type annotations).
+
+\section{Refinements}
+
+During the optimization task in the previous section, you would have mentally kept track of typing invariants to guess ``guess'' the ``type'' of subexpressions. One way to automatically infer these invariants is to use refinements. Refinements are predicates on terms that express properties of an expression. The particular property we are interested in this section is the ``class'' or ``classes'' of values a dynamically typed expression might take.
+
+As an example, consider the following expression $e$, which is the dynamically typed successor function.
+\[ e = \newce{\func}{\lam[\dynt] (x.\newce{\numc}{\suc(\caste{\numc}{x})}})\]
+A refinement which this expression has is $\isfun{\parr{\isnum}{\isnum}}$. This simply means that this expression of type $\dynt$, is a function over numbers to numbers. Notice that there is no such information in just the type of $e$.
+
+The syntax of the dynamically typed language with refinements is given below.
+It is intractable to guess all refinements of an arbitrary term. Therefore, we will use a bidirectional refinement checker, where the checker will be assisted with annotations at crucial points. The expression $\refana{e}{\prop}$ provides this annotation.
+
+\[
+\begin{array}{l c c l@{\qquad} l}
+\text{\bf Sort} & & & \text{\bf Abstract form} & \text{\bf Concrete form} \\
+\ms{Type} & \tau & ::= &\natt                     & \natt    \\
+          &      &     &\dynt                     & \dynt    \\
+          &      &     &\kw{parr}(\tau_1;\tau_2) & \parr{\tau_1}{\tau_2}\\
+\ms{Cls}  & l    & ::= &\numc                     & \numc\\
+          &      &     &\func                     & \func\\
+\ms{Exp}  & e    & ::= &\zero                     & \zero\\
+          &      &    & \suc(e)                   & \suc(e)\\
+          &      &    & \ifz(e;e_0;x.e_1)         & \ifz(e) \{z \goesto e_0 | \suc(x) \goesto e_1\}\\
+          &      &    & \newce{l}{e}              & \newce{l}{e}\\
+          &      &    & \caste{l}{e}              & \caste{l}{e}\\
+          &      &    & \lam[\tau](x.e)           & \lam ~x : \tau \goesto e\\
+          &      &    & \letexp{x}{e_1}{e_2}      & \letbind{x}{e_1}{e_2} \\
+          &      &    & \fix[\tau](x.e)           & \fix ~x : \tau ~\kw{is}~ e\\
+          &      &    & \refana{e}{\prop}         & \refana{e}{\prop}\\
+\ms{Prop} & \prop& ::=& \truth{\tau}              & \tru{\tau} \\
+          &      &    & \funp{\prop_1}{\prop_2}   & \parr{\prop_1}{\prop_2}\\
+          &      &    & \isnum                    & \isnum     \\
+          &      &    & \isfun{\prop}             & \isfun{\prop}    \\
+          &      &    & \kw{and}(\prop_1,\prop_2)& \prop_1 \land \prop_2\\
+\end{array}
+\]
+
+The refinements, denoted by $\prop$ are described below:
+\begin{itemize}
+\item $\tru{\tau}$ states that an expression has the type $\tau$. This can be read as ``truth at type $\tau$''.
+\item $\parr{\prop_1}{\prop_2}$ states that an function $e$ satisfying this predicate, can take an input that satisfies $\prop_1$ and then its output satisfies $\prop_2$.
+\item $\isnum$ is the predicate that an expression of type $\dynt$, actually belongs to the class $\numc$.
+\item $\isfun$ is the predicate that an expression of type $\dynt$, actually belongs to the class $\func$ and further that the property the function satisfies is $\phi$.
+\item $\phi_1 \land \phi_2$ is the predicate that an expression satisfies both $\phi_1$ and $\phi_2$.
+\end{itemize}
+\subsection{Rules for Refinements of a Type}
+$\fbox{\inferrule{}{\refines{\prop}{\tau}}}$
+\begin{mathpar}
+\inferrule{ }{
+\refines{\tru{\tau}}{\tau}
+}
+
+\inferrule{
+  \refines{\prop_1}{\tau_1}\\
+  \refines{\prop_2}{\tau_2}
+}{
+  \refines{\parr{\prop_1}{\prop_2}}{\parr{\tau_1}{\tau_2}}
+}
+
+\inferrule{ }{
+  \refines{\isnum}{\dynt}
+}
+
+\inferrule{
+  \refines{\prop}{\parr{\dynt}{\dynt}}
+ }{
+  \refines{\isfun{\prop}}{\dynt}
+}
+
+\inferrule{
+  \refines{\prop_1}{\tau}\\
+  \refines{\prop_2}{\tau}
+}{
+  \refines{\prop_1 \land \prop_2}{\tau}
+}
+\end{mathpar}
+
+\subsection{Analysis Rules}
+\begin{mathpar}
+\inferrule{
+  \anaJC{e}{\tru{\natt}}
+}{
+  \anaJC{\newce{\numc}{e}}{\isnum}
+}
+
+
+\inferrule{
+  \anaJC{e}{{\prop}}
+}{
+  \anaJC{\newce{\func}{e}}{\isfun{\prop}}
+}
+
+
+\inferrule{
+  \anaJC{e}{\isnum}
+}{
+  \anaJC{\caste{\numc}{e}}{\tru{\natt}}
+}
+
+\inferrule{
+  \anaJC{e}{\isfun{\prop}}
+}{
+  \anaJC{\caste{\func}{e}}{\prop}
+}
+
+\inferrule{
+  \anaJC{e}{\prop_1}\\
+  \anaJC{e}{\prop_2}
+}
+{
+  \anaJC{e}{\prop_1 \land \prop_2}
+}
+
+\inferrule{
+  \synJC{e}{\tru{\natt}}\\
+  \anaJC{e_0}{\prop}\\
+  \anaJ{\rctx, \refsyn{x}{\tru{\natt}}}{e_1}{\prop}
+}{
+  \anaJC{\ifz(e;e_0,x.e_1)}{\prop}
+}
+
+\inferrule{
+  \synJC{e_1}{\prop_1}\\
+  \anaJ{\rctx, \refsyn{x}{\prop_1}}{e_1}{\prop_2}
+}{
+  \anaJC{\letexp{x}{e_1}{e_2}}{\prop_2}
+}
+
+\inferrule{
+  \anaJ{\rctx, \refsyn{x}{\prop}}{e}{\prop}\\
+  \refines{\prop}{\tau}
+}{
+  \anaJ{\rctx}{\fix[\tau](x.e)}{\prop}
+}
+
+\inferrule{
+  \refines{\prop_1}{\tau}\\
+  \anaJ{\rctx, \refsyn{x}{\prop_1}}{e}{\prop_2}
+}{
+  \anaJ{\rctx}{\lam[\tau](x.e)}{\parr{\prop_1}{\prop_2}}
+}
+
+\inferrule{
+\synJC{e}{\prop}
+}{
+\anaJC{e}{\prop}
+}
+
+\end{mathpar}
+\subsection{Synthesis Rules}
+\begin{mathpar}
+\inferrule{ }{
+  \synJ{\rctx, \refsyn{x}{\prop}}{x}{\prop}
+}
+
+\inferrule{ }{
+  \synJC{\zero}{\tru{\natt}}
+}
+
+\inferrule{
+  \synJC{e}{\tru{\natt}}
+ }{
+  \synJC{\suc(e)}{\tru{\natt}}
+}
+
+\inferrule{
+\synJC{e_1}{\parr{\prop_1}{\prop_2}}\\
+\anaJC{e_2}{\prop_1}
+}{
+\synJC{e_1~e_2}{\prop_2}
+}
+
+\inferrule{
+  \synJC{e}{\prop_1 \land \prop_2}
+}{
+  \synJC{e}{\prop_1}
+}
+
+\inferrule{
+  \synJC{e}{\prop_1 \land \prop_2}
+}{
+  \synJC{e}{\prop_2}
+}
+
+
+\inferrule{
+  \anaJC{e}{\prop}
+}{
+  \synJC{(\refana{e}{\prop})}{\prop}
+}
+\end{mathpar}
+
+\begin{theorem}Soundness of refinements
+\begin{enumerate}
+\item If $\typeJC{e}{\tau}$, $\synJC{e}{\prop}$ and $\refines{\rctx}{\ctx}$, then $\refines{\prop}{\tau}$.
+\item If $\typeJC{e}{\tau}$, $\anaJC{e}{\prop}$ and $\refines{\rctx}{\ctx}$, then $\refines{\prop}{\tau}$.
+\end{enumerate}
+\end{theorem}
+
+\task{10}
+Prove the theorem.
+
+\task{10}
+Implement this language with refinements.
+
+
+\end{document}
+

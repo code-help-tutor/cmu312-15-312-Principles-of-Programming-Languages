@@ -1,0 +1,2 @@
+handin.zip: kpcf/language/statics.sml kpcf/language/dynamics.sml kpcf/refute.kpcf kpcf/nothrow.kpcf kpcf/derivable.kpcf kpcf/peirce.kpcf ma/statics-ma.sml ma/dynamics-ma.sml ma/parser/desugar.sml ma/tests/tasks/collatz.ma ma/tests/tasks/gcd.ma
+	zip handin.zip kpcf/language/statics.sml kpcf/language/dynamics.sml kpcf/refute.kpcf kpcf/nothrow.kpcf kpcf/derivable.kpcf kpcf/peirce.kpcf ma/statics-ma.sml ma/dynamics-ma.sml ma/parser/desugar.sml ma/tests/tasks/collatz.ma ma/tests/tasks/gcd.ma

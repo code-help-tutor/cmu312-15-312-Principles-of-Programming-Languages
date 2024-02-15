@@ -1,0 +1,21 @@
+Group
+  source(-)
+  library(../cmlib/cmlib.cm)
+  library(kpcf-abt/abt.cm)
+  library(kpcfv-abt/abt.cm)
+is
+  ../cmlib/cmlib.cm
+
+  kpcf-abt/abt.cm
+  kpcfv-abt/abt.cm
+
+  parser/sources.cm
+  elaborator/sources.cm
+  language/sources.cm
+
+  top/input.sml
+  top/interpreter.sig
+  top/interpreter.sml
+
+  tests/tests.sig
+  tests/tests.sml

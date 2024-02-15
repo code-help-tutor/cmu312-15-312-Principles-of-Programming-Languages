@@ -1,0 +1,23 @@
+Library
+  structure ParserPCF
+is
+  ../../cmlib/cmlib.cm
+  ../../core/core.cm
+
+  ../abt.cm
+
+  token.sml
+
+  lexer.sig
+  lexer.sml
+  lexmain.cmlex.sml
+
+  monad/monad.sig
+  monad/monad-util.sig
+  monad/monad-util.sml
+  monad/state-monad.sig
+  monad/state-monad.sml
+
+  parser-state.fun
+  parsemain.cmyacc.sml
+  parser.sml

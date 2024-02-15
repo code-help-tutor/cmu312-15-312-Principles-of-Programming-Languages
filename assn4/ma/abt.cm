@@ -1,0 +1,14 @@
+Library
+  signature MA
+  structure MA
+  structure Oper
+
+  library(../var/var.cm)
+is
+  ../cmlib/cmlib.cm
+  ../var/var.cm
+  ../abt/abt.cm
+
+  ma.abt.sig
+  ma.abt.fun
+  ma.abt.sml

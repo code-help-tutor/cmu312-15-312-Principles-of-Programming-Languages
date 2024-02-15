@@ -1,0 +1,47 @@
+Library
+  signature PARSER_MA
+  functor Parser
+
+  signature PARSER_STATE
+  structure ParserState
+
+  structure Symbols
+
+  signature TOP_LEVEL_COMMANDS
+  structure TopLevelCommands
+
+  signature DESUGAR
+
+  structure Environment
+
+  structure VariableContext
+  structure SymbolContext
+is
+  ../../cmlib/cmlib.cm
+
+  ../abt.cm
+
+  desugar.sig
+
+  monad/statemonad.sml
+  monad/monad.sig
+  monad/monadops.sig
+  monad/monadops.sml
+
+  token.sml
+  lexmain.cmlex.sml
+  lexer.sig
+  lexer.sml
+
+  parsemain.cmyacc.sml
+  parser.sig
+  parser.sml
+
+  parserstate.sml
+
+  symboltable.sml
+
+  environment.sml
+  toplevel-cmds.sig
+  toplevel-cmds.sml
+  context.sml

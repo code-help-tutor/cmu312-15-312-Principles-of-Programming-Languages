@@ -1,0 +1,3 @@
+fn (f : nat -> void) =>
+  let t is f(z) in
+  case[void] t {}

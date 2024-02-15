@@ -1,0 +1,12 @@
+# Convert input (an int or bool) to an int.
+def to_int(x):
+    return (1 if x else 0) if isinstance(x, bool) else x
+
+
+# Add arguments after converting to ints.
+def plus(args):
+    return to_int(args[0]) + to_int(args[1])
+
+
+if __name__ == "__main__":
+    print([plus([2, 3]), plus([2, True]), plus([2, False]), plus([True, False])])

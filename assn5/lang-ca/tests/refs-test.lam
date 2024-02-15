@@ -1,0 +1,145 @@
+load "refs.lam";
+
+fun assert_eq (x : nat) (y : nat) : cmd[unit] =
+  if x = y then cmd(ret(())) else cmd(print 'assertion failed\n')
+;
+
+val x = newref 1 in
+val y = deref x in
+val y = deref x in
+do(if 1 = y then cmd(print 'deref succeeded\n')
+        else cmd(print 'deref failed\n'));
+
+val x = newref 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'deref again succeeded\n')
+        else cmd(print 'deref again failed\n'));
+
+val x = newref 3 in
+val z = set x 10 in
+val y = deref x in
+do(if 10 = y then cmd(print 'set succeeded\n')
+        else cmd(print 'set failed\n'));
+
+val x = newref 4 in
+val z = set x 10 in
+val y = deref x in
+val y = deref x in
+do(if 10 = y then cmd(print 'set then deref again succeeded\n')
+        else cmd(print 'set then deref again failed\n'));
+
+val x = newref 5 in
+val z = set x 10 in
+val y = deref x in
+val z = assert_eq 10 y in
+val z = set x 2 in
+val z = set x 3 in
+val z = set x 4 in
+val y = deref x in
+val y = deref x in
+do(if 4 = y then cmd(print 'set again succeeded\n')
+        else cmd(print 'set again failed\n'));
+
+val x = newref 1 in
+val y = deref x in
+do(if 1 = y then cmd(print 'deref succeeded\n')
+        else cmd(print 'deref failed\n'));
+
+val x = newref 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'deref again succeeded\n')
+        else cmd(print 'deref again failed\n'));
+
+val x = newref 3 in
+val z = set x 8 in
+val z = set x 10 in
+val y = deref x in
+do(if 10 = y then cmd(print 'set succeeded\n')
+        else cmd(print 'set failed\n'));
+
+val x = newref 4 in
+val z = set x 10 in
+val y = deref x in
+val y = deref x in
+do(if 10 = y then cmd(print 'set then deref again succeeded\n')
+        else cmd(print 'set then deref again failed\n'));
+
+val x = newref 5 in
+val z = set x 10 in
+val y = deref x in
+val z = assert_eq 10 y in
+val z = set x 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'set again succeeded\n')
+        else cmd(print 'set again failed\n'));
+
+val x = newref 1 in
+val y = deref x in
+do(if 1 = y then cmd(print 'deref succeeded\n')
+        else cmd(print 'deref failed\n'));
+
+val x = newref 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'deref again succeeded\n')
+        else cmd(print 'deref again failed\n'));
+
+val x = newref 3 in
+val z = set x 10 in
+val y = deref x in
+do(if 10 = y then cmd(print 'set succeeded\n')
+        else cmd(print 'set failed\n'));
+
+val x = newref 4 in
+val z = set x 10 in
+val y = deref x in
+val y = deref x in
+do(if 10 = y then cmd(print 'set then deref again succeeded\n')
+        else cmd(print 'set then deref again failed\n'));
+
+val x = newref 5 in
+val z = set x 10 in
+val y = deref x in
+val z = assert_eq 10 y in
+val z = set x 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'set again succeeded\n')
+        else cmd(print 'set again failed\n'));
+
+val x = newref 1 in
+val y = deref x in
+do(if 1 = y then cmd(print 'deref succeeded\n')
+        else cmd(print 'deref failed\n'));
+
+val x = newref 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'deref again succeeded\n')
+        else cmd(print 'deref again failed\n'));
+
+val x = newref 3 in
+val z = set x 10 in
+val y = deref x in
+do(if 10 = y then cmd(print 'set succeeded\n')
+        else cmd(print 'set failed\n'));
+
+val x = newref 4 in
+val z = set x 10 in
+val y = deref x in
+val y = deref x in
+do(if 10 = y then cmd(print 'set then deref again succeeded\n')
+        else cmd(print 'set then deref again failed\n'));
+
+val x = newref 5 in
+val z = set x 10 in
+val y = deref x in
+val z = assert_eq 10 y in
+val z = set x 2 in
+val y = deref x in
+val y = deref x in
+do(if 2 = y then cmd(print 'set again succeeded\n')
+        else cmd(print 'set again failed\n'));

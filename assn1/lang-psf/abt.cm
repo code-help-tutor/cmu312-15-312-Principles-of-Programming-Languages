@@ -1,0 +1,12 @@
+Library
+  signature PSF
+  structure PSF
+
+  library(../var/var.cm)
+is
+  ../cmlib/cmlib.cm
+  ../var/var.cm
+  ../abt/abt.cm
+
+  psf.abt.sig
+  psf.abt.sml

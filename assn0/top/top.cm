@@ -1,0 +1,12 @@
+Library
+  structure TopLevel
+is
+  ../cmlib/cmlib.cm
+  ../lang-ulc/sources.cm
+  ../pprint/pprint.cm
+  ../unicode/unicode.cm
+
+  input.sml
+  toplevel.sig
+  toplevel.sml
+  top.sml

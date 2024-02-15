@@ -1,0 +1,93 @@
+sml
+name ParseMainFun
+
+terminal IDENT of string
+terminal LPAREN precl 9
+terminal RPAREN precl 9
+terminal LBRACK
+terminal RBRACK
+terminal LBRACE
+terminal RBRACE
+terminal LANGLE
+terminal RANGLE
+
+terminal COMMA
+terminal BAR
+terminal DOT
+terminal COLON
+terminal DARROW
+
+terminal LLABEL
+terminal RLABEL
+
+terminal NAT
+terminal TYPEA
+terminal TYPEB
+terminal TYPEC
+terminal TYPED
+terminal ARROW precr 5
+terminal PLUS precl 2
+terminal TIMES precl 4
+
+terminal IFZ precl 10
+terminal Z precl 10
+terminal S precl 10
+terminal FN precl 10
+terminal FUN precl 10
+terminal RET precl 10
+terminal IS precl 10
+terminal IN precl 10
+terminal LET precl 10
+terminal UNIT precl 10
+terminal VOID precl 10
+terminal COMP precl 10
+terminal CONT precl 10
+terminal CASE precl 10
+terminal LETCC precl 10
+terminal THROW precl 10
+terminal SPLIT precl 10
+
+nonterminal Typ : typ =
+  LPAREN 1:Typ RPAREN => typeid
+  1:Typ TIMES 2:Typ => typetimes
+  1:Typ PLUS  2:Typ => typesum
+  NAT => typenat
+  UNIT => typeunit
+  VOID => typevoid
+  TYPEA => typeA
+  TYPEB => typeB
+  TYPEC => typeC
+  TYPED => typeD
+  CONT LBRACK 1:Typ RBRACK => typecont
+  1:Typ ARROW 2:Typ => typefun
+
+nonterminal ExpAtom : exp =
+  LPAREN 1:Exp RPAREN => exp_id
+  1:IDENT => exp_var
+  Z => exp_z
+  S LPAREN 1:Exp RPAREN => exp_succ
+  LANGLE RANGLE => exp_unit
+  LANGLE 1:Exp COMMA 2:Exp RANGLE => exp_prod
+  CASE LBRACK 1:Typ RBRACK 2:Exp LBRACE RBRACE => exp_abort
+  THROW LBRACK 1:Typ RBRACK LPAREN 2:Exp COMMA 3:Exp RPAREN => exp_throw
+  CASE 1:Exp LBRACE LLABEL DOT 2:IDENT DARROW 3:Exp BAR RLABEL DOT 4:IDENT
+  DARROW 5:Exp RBRACE => exp_case
+  IFZ 1:Exp LBRACE Z DARROW 2:Exp BAR S LPAREN 3:IDENT RPAREN DARROW 4:Exp RBRACE => exp_ifz
+nonterminal ExpApp : exp =
+  1:ExpAtom => exp_id
+  1:ExpApp 2:ExpAtom => exp_app
+nonterminal Exp : exp =
+  1:ExpApp => exp_id
+  LETCC LBRACK 1:Typ RBRACK 2:IDENT IN 3:Exp => exp_letcc
+  LET 1:IDENT IS 2:Exp IN 3:Exp => exp_let
+  SPLIT 1:Exp IS 2:IDENT COMMA 3:IDENT IN 4:Exp => exp_split
+  LLABEL LBRACK 1:Typ COMMA 2:Typ RBRACK DOT 3:Exp => exp_injl
+  RLABEL LBRACK 1:Typ COMMA 2:Typ RBRACK DOT 3:Exp => exp_injr
+  FUN 1:IDENT LPAREN 2:IDENT COLON 3:Typ RPAREN COLON 4:Typ IS 5:Exp => exp_fun
+  FN LPAREN 1:IDENT COLON 2:Typ RPAREN DARROW 3:Exp => exp_lam
+  /*
+  1:Value DOT LLABEL => expprojl
+  1:Value DOT RLABEL => expprojr
+  */
+
+start Exp

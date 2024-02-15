@@ -1,0 +1,31 @@
+abt int
+
+abt label
+abt 'a labeled
+
+sort typ =
+| Int
+| List of typ
+| Prod of typ labeled
+| Sum of typ labeled
+| Arrow of typ * typ
+| Rec of typ binding . typ
+
+sort exp =
+| Error of typ
+| Int of int
+| Plus of exp * exp
+| LEq of exp * exp
+| List of typ * exp list
+| Append of exp * exp
+       (* (list, index) *)
+| Index of exp * exp
+| Len of exp
+| Pair of exp labeled
+| Proj of exp * label
+| Inj of typ labeled * label * exp
+| Case of typ * exp * (exp binding . exp) labeled
+| Lam of (exp binding * typ) . exp
+| Ap of exp * exp
+| Fold of (typ binding . typ) * exp
+| Unfold of exp

@@ -1,0 +1,16 @@
+# Zero out non-int inputs.
+def to_int(x):
+    return x if isinstance(x, int) else 0
+
+
+# Sum a list, ignoring non-int elements.
+def sum(l):
+    def sum_helper(i):
+        return 0 if len(l) <= i else to_int(l[i]) + sum_helper(i + 1)
+
+    return sum_helper(0)
+
+
+# Succeeds, ignoring `sum` and `True`.
+if __name__ == "__main__":
+    print(sum([1, 5, sum, 3, True, 1, 2]))

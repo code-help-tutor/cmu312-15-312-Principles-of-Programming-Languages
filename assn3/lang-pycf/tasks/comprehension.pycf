@@ -1,0 +1,14 @@
+# `comprehension([f, p, l])` is the same as list comprehension `[f(x) for x in l if p(x)]`.
+def comprehension(args):
+    return []
+
+
+test = [1, 5, 3, 1, 2]
+
+if __name__ == "__main__":
+    # print(comprehension([lambda x: x, lambda x: False, []]))  # []
+    # print(comprehension([lambda x: x, lambda x: True, test]))  # [1, 5, 3, 1, 2]
+    # print(comprehension([lambda x: x + 1, lambda x: True, test]))  # [2, 6, 4, 2, 3]
+    # print(comprehension([lambda x: x, lambda x: 3 <= x, test]))  # [5, 3]
+    # print(comprehension([lambda x: 10 + x, lambda x: 2 <= x, test]))  # [15, 13, 12]
+    print(comprehension)

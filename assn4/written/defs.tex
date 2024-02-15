@@ -1,0 +1,154 @@
+% General
+
+\DeclareDocumentCommand{\ifzabt}{m m m m}{\OpABT{\kw{ifz}}{#1;#2;\AbsABT{#3}{#4}}}
+\DeclareDocumentCommand{\ifzcst}{m m m m}{\ifzabt{#1}{#2}{#3}{#4}}
+
+
+% Modal Separation
+
+\newcommand{\VLang}[1]{{#1}\textsf{v}}
+
+\newcommand{\ValueSort}{\Sort{Value}}
+
+\newcommand{\Elaborate}[1]{\overline{#1}}
+
+\newcommand{\retabt}[1]{\OpABT{\kw{ret}}{#1}}
+\newcommand{\retcst}[1]{\kw{ret}(#1)}
+\newcommand{\bindabt}[3]{\OpABT{\kw{bind}}{#1;\AbsABT{#2}{#3}}}
+\newcommand{\bindcst}[3]{\kw{bind}~#2\leftarrow #1~\kw{in}~#3}
+
+\newcommand{\proves}{\vdash}
+\newcommand{\hasType}[2]{#1 : #2}
+\newcommand{\typeJ}[3]{#1 \proves \IsOf{#2}{#3}}
+\newcommand{\ctx}{\Gamma}
+\newcommand{\emptyCtx}{\emptyset}
+\newcommand{\xCtx}[2]{\ctx, \IsOf{#1}{#2}}
+\newcommand{\typeJC}[2]{\typeJ{\ctx}{#1}{#2}}
+
+\newcommand{\eTypeJ}[3]{#1 \proves \IsOfComp{#2}{#3}}
+\newcommand{\eTypeJC}[2]{\eTypeJ{\ctx}{#1}{#2}}
+
+
+% KPCF
+
+\newcommand{\LangKPCFv}{\VLang{\LangKPCF}}
+
+\newcommand{\StackSort}{\Sort{Stack}}
+\newcommand{\StateSort}{\Sort{State}}
+
+\newcommand{\StackFrame}[3]{\ConsStack{\AbsABT{#2}{#3}}{#1}}
+
+\newcommand{\ltrue}{\top}
+\newcommand{\lfalse}{\bot}
+\newcommand{\limplies}{\supset}
+\newcommand{\liff}{\supset\subset}
+
+% PPCF
+
+\newcommand{\LangPPCFv}{\VLang{\LangPPCF}}
+
+% \newcommand{\eprodtyabt}[2]{\OpABT{\kw{eprod}[#1]}{#2}}
+% \newcommand{\eprodtycst}[2]{#2}
+% \newcommand{\lprodtyabt}[2]{\OpABT{\kw{lprod}[#1]}{#2}}
+% \newcommand{\lprodtycst}[2]{\{#2\}}
+
+% \newcommand{\seqtyabt}[1]{\OpABT{\kw{seq}}{#1}}
+% \newcommand{\seqtycst}[1]{#1\ \kw{seq}}
+% \newcommand{\gentyabt}[1]{\OpABT{\kw{gen}}{#1}}
+% \newcommand{\gentycst}[1]{#1\ \kw{gen}}
+
+% \newcommand{\many}[2]{#2_1 #1\ldots #1 #2_n}
+% \newcommand{\manyz}[2]{#2_0 #1\ldots #1 #2_{n-1}}
+% \newcommand{\epsep}{\otimes}
+% \newcommand{\lpsep}{\,\&\,}
+% \newcommand{\tsep}{\otimes}
+% \newcommand{\ltsep}{\,\&\,}
+% \newcommand{\parcomp}{\,\otimes\,}
+% \newcommand{\seqcomp}{\,\oplus\,}
+
+% \newcommand{\etupabt}[2]{\OpABT{\kw{etup}[#1]}{#2}}
+% \newcommand{\etupcst}[2]{#2}
+% \newcommand{\ltupabt}[2]{\OpABT{\kw{ltup}[#1]}{#2}}
+% \newcommand{\ltupcst}[2]{\{#2\}}
+
+% \newcommand{\seqabt}[3]{\kw{seq}\{#1\}[#2](#3)}
+% \newcommand{\seqcst}[3]{\left\langle #3 \right\rangle}
+% \newcommand{\genabt}[4]{\OpABT{\kw{gen}\{#1\}}{#2;\AbsABT{#3}{#4}}}
+% \newcommand{\gencst}[4]{\kw{gen}\{#1\}[#2]\ \kw{with}\ #3\ \kw{in}\ #4}
+% \newcommand{\subabt}[2]{\OpABT{\kw{sub}}{#1;#2}}
+% \newcommand{\subcst}[2]{#1[#2]}
+
+% \newcommand{\splitabt}[4]{\OpABT{\kw{split}[#1]}{#2;\AbsABT{#3}{#4}}}
+% \newcommand{\splitcst}[4]{\kw{split}~#2~\kw{as}~#3~\kw{in}~#4}
+% \newcommand{\parabt}[1]{\OpABT{\kw{par}}{#1}}
+% \newcommand{\parcst}[1]{\kw{par}~#1}
+% \newcommand{\tababt}[1]{\OpABT{\kw{tab}}{#1}}
+% \newcommand{\tabcst}[1]{\kw{tab}~#1}
+
+% \newcommand{\primexabt}[3]{\OpABT{\kw{prim}}{#1; #2; #3}}
+% \newcommand{\primexcst}[3]{#2\,#1\,#3}
+
+% \newcommand{\join}[3]{\kw{join}[#1](\AbsABT{#2}{#3})}
+
+% \newcommand{\val}[1]{#1~\textsf{val}}
+% \newcommand{\sctx}{\Sigma}
+% \newcommand{\errl}[1]{#1\ \textsf{err}}
+% \newcommand{\stepsl}[2]{#1 \xmapsto[loc]{} #2}
+% \newcommand{\stepsm}[2]{\left\{\begin{array}{c}#1 \\\xmapsto[loc]{}\\#2\end{array}\right\}}
+% \newcommand{\stepsg}[2]{\left\{\begin{array}{c}#1 \\\xmapsto[glo]{}\\#2\end{array}\right\}}
+% \newcommand{\lstate}[2]{\nu#1\{#2\}}
+% \newcommand{\pType}[2]{#1\!\sim\!#2}
+
+% \newcommand{\pbind}[2]{#1 \hookrightarrow #2}
+% \newcommand{\extp}[2]{ \otimes \pbind{#1}{#2}}
+
+%% Convenient macros for defining names of judgments
+\newcommand{\RSubIOf}[3]{{#1}\ensuremath{_{#2}}-\ensuremath{#3}}
+\newcommand{\RIntroOf}[1]{\ensuremath{#1}-I}
+\newcommand{\RIntroIOf}[2]{\ensuremath{#2}-I\ensuremath{_{#1}}}
+\newcommand{\RElimOf}[1]{\ensuremath{#1}-E}
+\newcommand{\RElimIOf}[2]{\ensuremath{#2}-E\ensuremath{_{#1}}}
+\newcommand{\RDynOf}[1]{D-\ensuremath{#1}}
+\newcommand{\RDynIOf}[2]{D\ensuremath{_{#1}}-\ensuremath{#2}}
+\newcommand{\RValOf}[1]{Val-\ensuremath{#1}}
+\newcommand{\RValIOf}[2]{Val\ensuremath{_{#1}}-\ensuremath{#2}}
+\newcommand{\ROkOf}[1]{Ok-\ensuremath{#1}}
+\newcommand{\ROkIOf}[2]{Ok\ensuremath{_{#1}}-\ensuremath{#2}}
+% \newcommand{\RErrOf}[1]{Err-\ensuremath{#1}}
+% \newcommand{\RErrIOf}[2]{Err\ensuremath{_{#1}}-\ensuremath{#2}}
+\newcommand{\RCmdOf}[1]{\ensuremath{#1}-c}
+\newcommand{\RCmdIOf}[2]{\ensuremath{#2}-C\ensuremath{_{#1}}}
+
+\DeclareDocumentCommand{\FrameDcl}{m}{\OpInst{\kw{dcl}}{#1}}
+\DeclareDocumentCommand{\FrameDclM}{m m}{\OpABT{\OpInst{\kw{dcl}}{#1}}{#2}}
+\DeclareDocumentCommand{\FrameBnd}{m m}{\seqcmdabt{-}{#1}{#2}}
+\DeclareDocumentCommand{\CEvalM}{m m m m}{\RState{\CEval{#1}{#2}}{#3}{#4}}
+\DeclareDocumentCommand{\CRetM}{m m m m}{\RState{\CRet{#1}{#2}}{#3}{#4}}
+
+\DeclareDocumentCommand{\letcccmdabt}{m m m}{\letccabt{#1}{#2}{#3}}
+\DeclareDocumentCommand{\letcccmdcst}{m m m}{\letcccst{#2}{#3}}
+
+\DeclareDocumentCommand{\tdclccabt}{m m m m m}{\OpABTp{\kw{dcl}}{#1;#2}{#3;\SymABT{#4}{#5}}}
+\DeclareDocumentCommand{\tdclcccst}{m m m m m}{\tnewvarcst{-}{#3}{#4}{#5}}
+
+\DeclareDocumentCommand{\exitcmdabt}{m m m}{\OpABT{\OpInst{\OpABTn{\kw{exit}}{#1}}{#2}}{#3}}
+\DeclareDocumentCommand{\exitcmdcst}{m m m}{\breakcmdabt{#1}{#2}{#3}}
+\DeclareDocumentCommand{\retrycmdabt}{m m m}{\OpABT{\OpInst{\OpABTn{\kw{retry}}{#1}}{#2}}{#3}}
+\DeclareDocumentCommand{\retrycmdcst}{m m m}{\continuecmdabt{#1}{#2}{#3}}
+
+\DeclareDocumentCommand{\ifcmdcst}{m m m}{\kw{if}_\kw{m}\,\cdparens{#1}\,\kw{then}\,\cdbraces{#2}\,\kw{else}\,\cdbraces{#3}}
+\DeclareDocumentCommand{\whilecmdcst}{m m}{\kw{while}\,\cdparens{#1}\cdbraces{#2}}
+\DeclareDocumentCommand{\semicmdcst}{m m}{{#1};{#2}}
+\DeclareDocumentCommand{\ignorecmdcst}{m}{\kw{ignore}\,\cdparens{#1}}
+
+\DeclareDocumentCommand{\lptycst}{}{\kw{lp}}
+\DeclareDocumentCommand{\whilexcmdcst}{m m m}{\OpABT{\kw{while}}{#1;\AbsABT{#2}{#3}}}
+\DeclareDocumentCommand{\breakcmdcst}{m m}{\OpABT{\OpABTn{\kw{break}}{#1}}{#2}}
+\DeclareDocumentCommand{\continuecmdcst}{m m}{\OpABT{\OpABTn{\kw{continue}}{#1}}{#2}}
+
+\DeclareDocumentCommand{\CRaiseA}{m m m m}{{#1}\mathrel{\blacktriangleleft_{#2}^{#4}{#3}}}
+\DeclareDocumentCommand{\CJmpM}{m m m m m}{\RState{\CRaiseA{#1}{#2}{#3}{}}{#4}{#5}}
+\DeclareDocumentCommand{\CExitM}{m m m m m}{\RState{\CRaiseA{#1}{#2}{#3}{\kw{xt}}}{#4}{#5}}
+\DeclareDocumentCommand{\CRetryM}{m m m m m}{\RState{\CRaiseA{#1}{#2}{#3}{\kw{rt}}}{#4}{#5}}
+
+\DeclareDocumentCommand{\HasSymK}{m m m}{\JInfix{#1}{\twiddle}{{#2};{#3}}}
